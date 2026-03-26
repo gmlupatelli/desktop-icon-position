@@ -1,6 +1,101 @@
 # Architecture
 
-Technical details of how the Desktop Icon Position Manager works.
+Technical details of the Desktop Icon Position Manager — both the macOS app and the legacy shell script.
+
+## Project Structure
+
+```
+desktop-icon-position/
+├── README.md                          # Main docs (app-focused)
+├── docs/
+│   └── ARCHITECTURE.md                # This file
+├── macos-app/
+│   ├── Package.swift                  # SPM project, macOS 14+, Swift 6.0
+│   ├── Resources/Info.plist           # LSUIElement, NSAppleEventsUsageDescription
+│   ├── Sources/DesktopIconPosition/
+│   │   ├── App.swift                  # @main, MenuBarExtra
+│   │   ├── Models/
+│   │   │   ├── DisplayFrame.swift     # Display geometry (Quartz coords)
+│   │   │   ├── IconPosition.swift     # Icon name + x,y
+│   │   │   └── Profile.swift          # Full profile: fingerprint, displays, settings, icons
+│   │   ├── Services/
+│   │   │   ├── CoordinateConverter.swift  # Remap icons between display configs
+│   │   │   ├── DisplayService.swift       # NSScreen queries, fingerprint, display names
+│   │   │   ├── FinderService.swift        # NSAppleScript calls to Finder
+│   │   │   └── ProfileManager.swift       # Read .txt+.json, write .json, CRUD
+│   │   ├── ViewModels/
+│   │   │   └── AppViewModel.swift     # @Observable state, orchestrates all operations
+│   │   └── Views/
+│   │       └── MenuBarView.swift      # SwiftUI menu content + NSPanel dialogs
+│   └── Tests/DesktopIconPositionTests/
+│       ├── CoordinateConverterTests.swift
+│       ├── DisplayServiceTests.swift
+│       └── ProfileManagerTests.swift
+└── scripts/
+    ├── README.md                      # Script-specific docs
+    └── desktop_icons.sh               # Legacy shell script
+```
+
+## macOS App Architecture
+
+### Tech Stack
+
+- **Swift 6.0** with strict concurrency (`@MainActor` throughout)
+- **SwiftUI** MenuBarExtra (macOS 14+ requirement for `@Observable` / `@Bindable`)
+- **SPM** (Swift Package Manager) — no Xcode project file
+- **NSAppleScript** for Finder interaction (inline AppleScript strings)
+- **ServiceManagement** `SMAppService` for Launch at Login
+- **CryptoKit** `Insecure.MD5` for display fingerprinting
+
+### Data Flow
+
+```
+Display Change Notification
+       │
+       ▼
+AppViewModel.handleDisplayChange()
+       │
+       ├─ autoSaveOnDisplayChange? → saveAutoIfIconsExist() [save outgoing config]
+       │
+       ├─ Update lastFingerprint
+       │
+       └─ autoRestoreEnabled? → restoreAuto()
+                                    │
+                                    ├─ ProfileManager.findProfile(forFingerprint:)
+                                    ├─ CoordinateConverter.remap(icons:from:to:)
+                                    ├─ FinderService.restoreSettings()
+                                    ├─ FinderService.disableArrangement()
+                                    ├─ FinderService.batchSetPositions()
+                                    └─ FinderService.verifyAndReapply() [after 3s delay]
+```
+
+### Services
+
+| Service | Responsibility |
+|---------|---------------|
+| **DisplayService** | `NSScreen` queries, Cocoa→Quartz coordinate conversion, MD5 fingerprint, display names (`localizedName`), display change observer via `didChangeScreenParametersNotification` |
+| **FinderService** | 6 NSAppleScript operations: read positions, read settings, restore settings, disable arrangement, batch set positions (`ignoring application responses`), verify & reapply |
+| **CoordinateConverter** | `findDisplay(forPoint:in:)` and `remap(icons:from:to:)` — same algorithm as the shell script |
+| **ProfileManager** | Read `.txt` + `.json`, write `.json`, list, load, save, find by fingerprint, delete, rename, auto-profile name generation |
+
+### AppViewModel State
+
+| Property | Type | Persistence | Description |
+|----------|------|-------------|-------------|
+| `launchAtLogin` | `Bool` | SMAppService | macOS Login Items |
+| `autoRestoreEnabled` | `Bool` | UserDefaults | Auto-restore on display change |
+| `autoSaveOnLaunch` | `Bool` | UserDefaults | Save auto profile at startup |
+| `autoSaveOnDisplayChange` | `Bool` | UserDefaults | Save outgoing config before restore |
+| `autoSaveOnQuit` | `Bool` | UserDefaults | Save auto profile before quitting |
+| `autoSaveOnTimer` | `Bool` | UserDefaults | Periodic save toggle |
+| `autoSaveIntervalMinutes` | `Int` | UserDefaults | Timer interval (5/10/15/30) |
+| `showAutoProfiles` | `Bool` | UserDefaults | Show/hide `Auto-` profiles in menus |
+
+### Dialog Implementation
+
+LSUIElement apps (no dock icon) don't receive keyboard events by default. The app uses `NSPanel` (not `NSAlert`) and temporarily switches to `.regular` activation policy to receive keyboard input, then back to `.accessory` after the dialog closes.
+
+---
 
 ## Coordinate Conversion Logic
 
@@ -20,72 +115,74 @@ Icons that would land outside the current display bounds are clamped with 20px p
 
 ## Display Geometry Detection
 
-- Uses JXA (JavaScript for Automation) via `osascript -l JavaScript`
-- Reads `NSScreen` frames (Cocoa coordinates: bottom-left origin, Y up)
-- Converts to Quartz/CG coordinates (top-left origin, Y down) to match Finder's system
+- **App:** Uses `NSScreen.screens` directly from Swift
+- **Script:** Uses JXA (JavaScript for Automation) via `osascript -l JavaScript`
+- Both read `NSScreen` frames in Cocoa coordinates (bottom-left origin, Y up)
+- Both convert to Quartz/CG coordinates (top-left origin, Y down) to match Finder
 - Conversion formula: `cgY = mainScreenHeight - cocoaOriginY - screenHeight`
 
-## Profile File Format
+## Display Fingerprinting
 
-Stored at `~/.desktop_icon_profiles/<name>.txt`:
+A display fingerprint is an MD5 hash of sorted display geometry lines. Both the app and script use the same algorithm:
+
+```
+sorted pipe-delimited frames → MD5
+e.g., "0|0|1792|1120\n912|-1080|1920|1080\n" → "566459849ad08e7084399efd0414acb8"
+```
+
+The app generates auto-profile names with display info:
+```
+Auto-Built-in+DELL-U2720Q_56645984
+```
+
+The script uses a simpler format:
+```
+auto_56645984
+```
+
+Both match profiles by scanning the fingerprint stored inside the profile file/JSON, so the naming difference doesn't affect matching.
+
+## Profile Formats
+
+### JSON (app writes, app reads)
+
+```json
+{
+  "fingerprint": "566459849ad08e7084399efd0414acb8",
+  "displays": [
+    {"x": 0, "y": 0, "width": 1792, "height": 1120}
+  ],
+  "settings": {"iconSize": 60, "textSize": 12},
+  "icons": [
+    {"name": "filename.txt", "x": 40, "y": 50}
+  ]
+}
+```
+
+### Pipe-delimited (script writes, both read)
 
 ```
 #FINGERPRINT|566459849ad08e7084399efd0414acb8
 #DISPLAY|0|0|1792|1120
-#DISPLAY|912|-1080|1920|1080
 #SETTINGS|60|12
-filename.txt|1960|50
-photo.jpg|2000|150
+filename.txt|40|50
 ```
-
-- `#FINGERPRINT|<md5>` — MD5 hash of sorted display geometry, used for auto-profile matching
-- `#DISPLAY|originX|originY|width|height` — Display geometry at time of save (Quartz/CG coordinates)
-- `#SETTINGS|iconSize|textSize` — Finder icon size and text size at time of save
-- Other lines are `iconName|x|y` positions
-
-## Display Fingerprinting
-
-A display fingerprint is an MD5 hash of sorted display geometry lines. This allows automatic profile matching:
-
-```bash
-get_display_frames | sort | md5 -q
-# e.g., "566459849ad08e7084399efd0414acb8" → shortened to "56645984"
-```
-
-When using `save auto`, the profile name is `auto_<fingerprint>`. When using `restore auto` or `watch auto`, the script scans all saved profiles for a matching `#FINGERPRINT` line.
-
-## Key Functions
-
-| Function | Purpose |
-|----------|---------|
-| `get_display_frames()` | JXA/NSScreen to get display origins+sizes in CG coords |
-| `get_display_count()` | JXA/NSScreen to get display count (instant, replaces `system_profiler`) |
-| `get_display_fingerprint()` | MD5 hash of sorted display geometry for auto-profile matching |
-| `find_display_for_point(x, y, displays)` | Determine which display contains a point |
-| `remap_coordinates(saved, current, icons)` | Core conversion — remap icons to new display layout |
-| `find_profile_for_fingerprint(fp)` | Scan saved profiles and return one matching the given fingerprint |
-| `cmd_restore()` | Restore settings, disable arrangement, batch-set positions, verify and re-apply drift |
-| `cmd_watch()` | Poll for display fingerprint changes, auto-restore on change |
-
-## Icon Position Read/Write
-
-- **Read:** AppleScript `desktop position of item` in Finder (returns `{x, y}` in global coords)
-- **Write:** AppleScript `set desktop position of item "name" of desktop to {x, y}`
 
 ## Restore Process
 
-The restore flow uses several techniques to prevent Finder from rearranging icons:
+Both the app and script use the same restore flow:
 
-1. **Restore icon size and text size** — If saved settings differ from current, set them back to prevent layout recalculation
-2. **Disable Finder arrangement** — `set arrangement of (icon view options of desktop's window) to not arranged` turns off Snap to Grid
-3. **Batch position-setting** — All icon positions are set in a single AppleScript block wrapped in `ignoring application responses` (prevents Finder from queuing re-arrange between individual icon placements)
-4. **Post-restore verification** — After 3 seconds, batch-reads all current positions, compares with targets (2px tolerance), and batch-reapplies any that drifted
+1. **Restore icon size and text size** — prevents Finder layout recalculation
+2. **Disable Finder arrangement** — `set arrangement of (icon view options of desktop's window) to not arranged`
+3. **Batch position-setting** — all icons in one AppleScript block with `ignoring application responses`
+4. **Post-restore verification** — after 3 seconds, re-read positions, reapply any that drifted (2px tolerance)
 
-This approach is inspired by [Desktop Icon Manager (DIM)](https://github.com/com-entonos/Desktop-Icon-Manager), which uses the same `ignoring application responses` + arrangement-disable pattern.
+Inspired by [Desktop Icon Manager (DIM)](https://github.com/com-entonos/Desktop-Icon-Manager).
 
 ## Known Limitations
 
-- First run requires granting Accessibility/Automation permissions to Terminal
-- The `watch` command uses JXA-based display fingerprint polling (every 3s) — not event-driven
-- Filenames containing the `|` character would break the delimiter (extremely rare on macOS)
-- Auto-profile fingerprint matching returns the first match — if multiple profiles share a fingerprint, only one is used
+- First run requires granting Accessibility/Automation permissions to the app (or Terminal for the script)
+- `SMAppService` Launch at Login requires the app to be at a stable filesystem location
+- Filenames containing `|` would break the script's pipe-delimited format (extremely rare on macOS)
+- Auto-profile fingerprint matching returns the first match if multiple profiles share a fingerprint
+- The script cannot read `.json` profiles saved by the app

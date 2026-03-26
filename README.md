@@ -1,93 +1,100 @@
 # Desktop Icon Position Manager for macOS
 
-Saves, converts, and restores desktop icon positions across different display configurations. Solves the macOS icon shuffle when connecting/disconnecting external monitors.
+A macOS menu bar app that saves, converts, and restores desktop icon positions across different display configurations. Solves the macOS icon shuffle when connecting/disconnecting external monitors.
 
 ## The Problem
 
-When a MacBook is connected to an external monitor and you arrange desktop icons on the MacBook screen, disconnecting the external display causes macOS to scramble all icon positions. This happens because macOS uses a global coordinate system that spans all displays — when a display is removed, the coordinate origin shifts and icons end up off-screen.
+When a MacBook is connected to an external monitor and you arrange desktop icons, disconnecting the external display causes macOS to scramble all icon positions. This happens because macOS uses a global coordinate system that spans all displays — when a display is removed, the coordinate origin shifts and icons end up off-screen.
 
-## How It Works
+## The App
 
-The script saves icon positions, display geometry, icon size, text size, and a display fingerprint together as a "profile." On restore, it:
+A lightweight menu bar app (no dock icon) that handles everything automatically:
 
-1. Restores icon size and text size to prevent Finder layout recalculation
-2. Disables Finder's auto-arrange (Snap to Grid) to prevent icon drift
-3. Detects if the display setup has changed and auto-converts coordinates
-4. Sets all icon positions in a single batch using `ignoring application responses`
-5. Verifies positions after 3 seconds and corrects any that drifted
+- **Auto-saves** your icon layout on launch, display change, quit, or periodically
+- **Auto-restores** when you connect/disconnect displays — finds the right profile by display fingerprint
+- **Coordinate remapping** — converts icon positions between different display configurations
+- **Anti-drift protection** — disables Snap to Grid, batch-sets positions, and verifies after restore
+- **Launch at Login** — starts automatically via macOS Login Items
 
-Coordinate conversion works by finding which display each icon was on, calculating its relative position within that display, and remapping onto the current primary display (with 20px padding for out-of-bounds icons).
+### Menu Bar Features
 
-## Quick Start
-
-```bash
-# Make the script executable
-chmod +x scripts/desktop_icons.sh
-
-# Save icon positions while docked to external monitor
-./scripts/desktop_icons.sh save docked
-
-# ... disconnect your external monitor ...
-
-# Restore — icons auto-converted for single display!
-./scripts/desktop_icons.sh restore docked
-```
+| Feature | Description |
+|---------|-------------|
+| Save Auto | Save icon positions tagged to your current display config |
+| Save As... | Save with a custom profile name |
+| Update Profile | Overwrite an existing profile with current positions |
+| Restore | Restore any saved profile (auto-converts coordinates if displays changed) |
+| Manage Profiles | Rename or delete saved profiles |
+| Auto-Restore | Toggle automatic restore on display change |
+| Auto-Save | Toggle auto-save on launch, display change, quit, or periodic timer |
+| Launch at Login | Start the app automatically when you log in |
+| Show Auto Profiles | Toggle visibility of auto-generated profiles in menus |
 
 ### Auto Profiles
 
-Auto profiles use a display fingerprint (hash of display geometry) to automatically match the right profile for your current setup:
+Auto profiles use human-readable names with display info and a fingerprint hash:
 
-```bash
-# Save a profile tagged to your current display configuration
-./scripts/desktop_icons.sh save auto
-
-# Restore — automatically finds the profile matching your current displays
-./scripts/desktop_icons.sh restore auto
-
-# Watch mode — auto-selects the right profile on any display change
-./scripts/desktop_icons.sh watch auto
+```
+Auto-Built-in_a1b2c3d4              (single MacBook display)
+Auto-Built-in+DELL-U2720Q_e5f6g7h8  (MacBook + external monitor)
 ```
 
-## Commands
+The app automatically matches the right profile to your current display setup and restores it.
 
-| Command | Description |
-|---------|-------------|
-| `save <profile>` | Save icon positions + display geometry + settings |
-| `save auto` | Save with auto-detected display fingerprint |
-| `restore <profile>` | Smart restore — auto-converts if displays changed |
-| `restore auto` | Restore matching profile for current displays |
-| `convert <src> <dst>` | Convert and save as a new profile for current displays |
-| `list <profile>` | Show saved positions, settings, and fingerprint |
-| `profiles` | List all saved profiles with fingerprints |
-| `watch <profile>` | Auto-restore when display geometry changes (polls every 3s) |
-| `watch auto` | Auto-restore using display fingerprint matching |
-| `count` | Show current display count and geometry |
+## Build & Run
 
-## Requirements
+Requires **macOS 14+** and **Xcode** (for Swift 6.0).
 
-- macOS (tested on macOS with Finder)
-- Terminal must have **Accessibility / Automation** permissions (System Settings > Privacy & Security)
+```bash
+cd macos-app
+swift build
+.build/debug/DesktopIconPosition
+```
+
+Or open `macos-app/Package.swift` in Xcode and build/run from there.
+
+### Permissions
+
+On first run, macOS will prompt for **Accessibility / Automation** permissions to control Finder (System Settings > Privacy & Security).
 
 ## Profiles
 
-Profiles are stored at `~/.desktop_icon_profiles/<name>.txt` and contain display fingerprint, display geometry, icon/text size settings, and icon positions. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the file format and technical details.
+Profiles are stored at `~/.desktop_icon_profiles/`. The app writes `.json` and can also read `.txt` profiles from the legacy shell script.
 
-## Anti-Drift Measures
+Each profile contains:
+- Display fingerprint (MD5 hash of display geometry)
+- Display frames (Quartz/CG coordinates)
+- Finder settings (icon size, text size)
+- Icon positions (name, x, y)
 
-The script uses several techniques (inspired by [Desktop Icon Manager](https://github.com/com-entonos/Desktop-Icon-Manager)) to prevent macOS from rearranging icons after restore:
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for technical details.
 
-1. **Disables Finder arrangement** — Turns off "Snap to Grid" and similar auto-arrange settings before restoring
-2. **Restores icon/text size** — Prevents Finder from recalculating layout due to size changes
-3. **Batch placement** — Sets all positions in a single AppleScript call wrapped in `ignoring application responses`
-4. **Post-restore verification** — Waits 3 seconds, re-reads all positions, and batch-corrects any that drifted
+## Shell Script (Legacy)
+
+The original shell script implementation is still available at [scripts/desktop_icons.sh](scripts/). It's useful for automation or environments where the app can't be installed. See the [script README](scripts/README.md) for usage details.
+
+## How It Works
+
+On save, the app captures icon positions, display geometry, icon size, text size, and a display fingerprint together as a profile. On restore:
+
+1. Restores icon size and text size to prevent Finder layout recalculation
+2. Disables Finder's auto-arrange (Snap to Grid) to prevent icon drift
+3. Detects if the display setup changed and auto-converts coordinates
+4. Sets all icon positions in a single batch using `ignoring application responses`
+5. Verifies positions after 3 seconds and corrects any that drifted
+
+Coordinate conversion works by finding which display each icon was on, calculating its relative position within that display, and remapping onto the current display layout (with 20px padding for out-of-bounds icons).
 
 ## Roadmap
 
-- [x] Get the shell script working reliably across display configurations
-- [x] Fix icon drift (disable Snap to Grid, batch restore, verification)
+- [x] Shell script with save/restore/watch and coordinate conversion
+- [x] Anti-drift measures (disable Snap to Grid, batch restore, verification)
 - [x] Per-display auto-profiles with display fingerprinting
-- [ ] Convert into a native macOS application (Swift/AppKit)
-- [ ] Launch Agent for auto-running watch mode on login
-- [ ] Event-driven display change detection (replace polling)
+- [x] Native macOS menu bar app (Swift/SwiftUI)
+- [x] Event-driven display change detection (replaces polling)
+- [x] Launch at Login
+- [x] Auto-save on launch, display change, quit, and periodic timer
+- [x] Profile management (rename, delete, update)
+- [x] Human-readable auto-profile names with display info
 - [ ] Support for more than 2 displays with display-to-display mapping
-- [ ] Support for more than 2 displays
+- [ ] App icon and proper macOS distribution (DMG / notarization)

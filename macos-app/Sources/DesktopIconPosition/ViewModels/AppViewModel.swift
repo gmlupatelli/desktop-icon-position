@@ -41,6 +41,9 @@ final class AppViewModel {
     var autoSaveOnDisplayChange: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnDisplayChange") {
         didSet { UserDefaults.standard.set(autoSaveOnDisplayChange, forKey: "autoSaveOnDisplayChange") }
     }
+    var autoSaveOnQuit: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnQuit") {
+        didSet { UserDefaults.standard.set(autoSaveOnQuit, forKey: "autoSaveOnQuit") }
+    }
     var autoSaveOnTimer: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnTimer") {
         didSet {
             UserDefaults.standard.set(autoSaveOnTimer, forKey: "autoSaveOnTimer")
@@ -96,6 +99,14 @@ final class AppViewModel {
             NotificationCenter.default.removeObserver(observer)
             displayObserver = nil
         }
+    }
+
+    func quit() {
+        if autoSaveOnQuit {
+            saveAutoIfIconsExist()
+        }
+        stop()
+        NSApplication.shared.terminate(nil)
     }
 
     // MARK: - Save

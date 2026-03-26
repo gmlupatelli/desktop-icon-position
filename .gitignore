@@ -2,8 +2,12 @@
 .DS_Store
 ._*
 
+# IDE
+.vscode/
+
 # Xcode (future macOS app)
 macos-app/build/
+macos-app/.build/
 macos-app/*.xcodeproj/xcuserdata/
 macos-app/*.xcworkspace/xcuserdata/
 DerivedData/

@@ -130,9 +130,25 @@ final class ProfileManager {
         return nil
     }
 
-    /// Generate an auto-profile name from a fingerprint.
-    static func autoProfileName(fingerprint: String) -> String {
-        "auto_\(fingerprint.prefix(8))"
+    /// Generate a human-friendly auto-profile name from display names and fingerprint.
+    /// e.g. "Auto-Built-in+DELL-U2720Q_a1b2c3d4"
+    static func autoProfileName(fingerprint: String, displayNames: [String] = []) -> String {
+        let hash = String(fingerprint.prefix(8))
+        guard !displayNames.isEmpty else {
+            return "Auto-\(hash)"
+        }
+        let sanitized = displayNames.map { name in
+            // Shorten common prefixes, replace spaces/special chars with hyphens
+            name.replacingOccurrences(of: "Built-in Retina Display", with: "Built-in")
+                .replacingOccurrences(of: "Built-in Display", with: "Built-in")
+                .replacingOccurrences(of: " ", with: "-")
+                .components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-")).inverted)
+                .joined()
+        }
+        let joined = sanitized.joined(separator: "+")
+        // Truncate to keep filename reasonable (max ~60 chars for the name part)
+        let truncated = String(joined.prefix(50))
+        return "Auto-\(truncated)_\(hash)"
     }
 
     // MARK: - Delete

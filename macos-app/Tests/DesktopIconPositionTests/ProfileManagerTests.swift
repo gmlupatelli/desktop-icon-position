@@ -36,6 +36,12 @@ struct ProfileManagerTests {
     @Test("auto profile name uses first 8 chars of fingerprint")
     func autoProfileName() {
         let name = ProfileManager.autoProfileName(fingerprint: "566459849ad08e7084399efd0414acb8")
-        #expect(name == "auto_56645984")
+        #expect(name == "Auto-56645984")
     }
-}
+    @Test func autoProfileNameWithDisplayNames() {
+        let name = ProfileManager.autoProfileName(
+            fingerprint: "566459849ad08e7084399efd0414acb8",
+            displayNames: ["Built-in Retina Display", "DELL U2720Q"]
+        )
+        #expect(name == "Auto-Built-in+DELL-U2720Q_56645984")
+    }}

@@ -63,7 +63,7 @@ final class AppViewModel {
 
     var visibleProfiles: [ProfileManager.ProfileSummary] {
         if showAutoProfiles { return profiles }
-        return profiles.filter { !$0.name.hasPrefix("auto_") }
+        return profiles.filter { !$0.name.hasPrefix("Auto-") }
     }
 
     // MARK: - Private State
@@ -137,7 +137,8 @@ final class AppViewModel {
     /// Save with auto-fingerprint name.
     func saveAuto() {
         let fp = DisplayService.fingerprint()
-        let name = ProfileManager.autoProfileName(fingerprint: fp)
+        let names = DisplayService.displayNames()
+        let name = ProfileManager.autoProfileName(fingerprint: fp, displayNames: names)
         save(name: name)
     }
 

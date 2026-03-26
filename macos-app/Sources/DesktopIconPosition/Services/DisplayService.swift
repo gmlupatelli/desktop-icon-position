@@ -38,6 +38,11 @@ final class DisplayService {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
+    /// Returns localized display names (e.g. "Built-in Retina Display", "DELL U2720Q").
+    static func displayNames() -> [String] {
+        NSScreen.screens.map { $0.localizedName }
+    }
+
     /// Observe display configuration changes via NSApplication notification.
     /// Calls the handler on the main actor after the specified delay (seconds).
     static func observeDisplayChanges(

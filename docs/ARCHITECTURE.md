@@ -75,7 +75,7 @@ AppViewModel.handleDisplayChange()
 |---------|---------------|
 | **DisplayService** | `NSScreen` queries, Cocoa→Quartz coordinate conversion, MD5 fingerprint, display names (`localizedName`), display change observer via `didChangeScreenParametersNotification` |
 | **FinderService** | 6 NSAppleScript operations: read positions, read settings, restore settings, disable arrangement, batch set positions (`ignoring application responses`), verify & reapply |
-| **CoordinateConverter** | `findDisplay(forPoint:in:)` and `remap(icons:from:to:)` — same algorithm as the shell script |
+| **CoordinateConverter** | `findDisplay(forPoint:in:)`, `matchDisplays(saved:current:)`, and `remap(icons:from:to:)` — smart display-to-display matching with displaced icon parking |
 | **ProfileManager** | Read `.txt` + `.json`, write `.json`, list, load, save, find by fingerprint, delete, rename, auto-profile name generation |
 
 ### AppViewModel State
@@ -99,19 +99,45 @@ LSUIElement apps (no dock icon) don't receive keyboard events by default. The ap
 
 ## Coordinate Conversion Logic
 
-macOS uses a unified global coordinate space across all displays. When an external monitor is disconnected, the origin shifts and saved coordinates become invalid.
+macOS uses a unified global coordinate space across all displays. When an external monitor is disconnected, the origin shifts and saved coordinates become invalid. The app uses a smart display-to-display matching algorithm to handle arbitrary display configuration changes.
 
-**Example:**
+### Display Matching Algorithm (`matchDisplays`)
+
+Given saved displays and current displays, the algorithm builds a mapping `[savedIndex: currentIndex]`:
+
+1. **Score all pairs** — For each (saved, current) pair, compute:
+   - **Overlap area** (higher = better match) — the intersection area of the two display rectangles
+   - **Center distance** (lower = better match) — Euclidean distance between display centers
+2. **Sort candidates** — Primary sort: overlap area descending. Tiebreaker: center distance ascending.
+3. **Greedy assignment** — Iterate sorted candidates. If the saved display is unassigned, assign it to the current display. Multiple saved displays can map to the same current display (e.g., 3 saved → 2 current).
+4. **Fallback** — Any unmatched saved display maps to current display 0 (primary).
+
+### Icon Remapping (`remap`)
+
+For each icon in the saved profile:
+
+1. **Find source display** — Which saved display contained this icon?
+2. **Look up target display** — Use the `matchDisplays` mapping.
+3. **Native icons** (source display overlaps target display):
+   - Compute relative position within source display
+   - Apply same relative offset on target display
+   - Clamp to target bounds with 20px padding
+4. **Displaced icons** (source display has no overlap with target, e.g., a removed monitor):
+   - Park in a grid at the **bottom** of the target display
+   - Grid spacing: 100px horizontal, 100px vertical
+   - Fill right-to-left, bottom-up (starting 120px from right edge, 120px from bottom)
+   - Each displaced icon gets a unique grid slot
+
+### Example: 2 displays → 1 display
 
 ```
-savedPosition = (1960, 50)          # global coords when saved
-sourceDisplay = origin (1920, 0)    # the display the icon was on
-relativePos   = (1960-1920, 50-0) = (40, 50)   # position within that display
-currentDisplay = origin (0, 0)      # MacBook is now primary
-newPosition   = (0+40, 0+50) = (40, 50)        # correct position on single display
-```
+Saved:   [MacBook 0,0,1792,1120]  [External 1792,0,1920,1080]
+Current: [MacBook 0,0,1792,1120]
 
-Icons that would land outside the current display bounds are clamped with 20px padding.
+Icon on MacBook at (40, 50)    → stays at (40, 50)         [native]
+Icon on External at (1900, 50) → parked at (1672, 1000)    [displaced, grid slot 0]
+Icon on External at (2000, 50) → parked at (1572, 1000)    [displaced, grid slot 1]
+```
 
 ## Display Geometry Detection
 

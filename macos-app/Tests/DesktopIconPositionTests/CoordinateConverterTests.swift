@@ -25,6 +25,65 @@ struct CoordinateConverterTests {
         #expect(found == displays[0])
     }
 
+    // MARK: - DisplayFrame helpers
+
+    @Test("center computes correctly")
+    func displayCenter() {
+        let frame = DisplayFrame(x: 100, y: 200, width: 1920, height: 1080)
+        #expect(frame.center.x == 1060)
+        #expect(frame.center.y == 740)
+    }
+
+    @Test("overlapArea with full overlap")
+    func overlapFull() {
+        let a = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        #expect(a.overlapArea(with: a) == 1920 * 1080)
+    }
+
+    @Test("overlapArea with no overlap")
+    func overlapNone() {
+        let a = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        let b = DisplayFrame(x: 2000, y: 0, width: 1920, height: 1080)
+        #expect(a.overlapArea(with: b) == 0)
+    }
+
+    @Test("overlapArea with partial overlap")
+    func overlapPartial() {
+        let a = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        let b = DisplayFrame(x: 960, y: 540, width: 1920, height: 1080)
+        #expect(a.overlapArea(with: b) == 960 * 540)
+    }
+
+    // MARK: - matchDisplays
+
+    @Test("identical displays map 1:1")
+    func matchIdentical() {
+        let displays = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
+            DisplayFrame(x: 1792, y: 0, width: 1920, height: 1080),
+        ]
+        let mapping = CoordinateConverter.matchDisplays(saved: displays, current: displays)
+        #expect(mapping[0] == 0)
+        #expect(mapping[1] == 1)
+    }
+
+    @Test("3 saved to 2 current: removed display maps to closest")
+    func matchThreeToTwo() {
+        let saved = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),       // Built-in
+            DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080),   // DELL left
+            DisplayFrame(x: 1792, y: 0, width: 1920, height: 1080),    // DELL right
+        ]
+        let current = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),       // Built-in
+            DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080),   // DELL left
+        ]
+        let mapping = CoordinateConverter.matchDisplays(saved: saved, current: current)
+        #expect(mapping[0] == 0)  // Built-in → Built-in
+        #expect(mapping[1] == 1)  // DELL left → DELL left
+        #expect(mapping[2] == 0)  // DELL right (removed) → closest = Built-in
+    }
+
     // MARK: - remap: identity
 
     @Test("same display layout returns identical positions")
@@ -35,10 +94,10 @@ struct CoordinateConverterTests {
         #expect(result == icons)
     }
 
-    // MARK: - remap: two displays to one
+    // MARK: - remap: two displays to one (displaced icons parked at bottom)
 
-    @Test("icon on secondary display maps to primary when secondary removed")
-    func remapTwoToOne() {
+    @Test("icon on removed display is parked at bottom of remaining display")
+    func remapTwoToOneParking() {
         let saved = [
             DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
             DisplayFrame(x: 1792, y: 0, width: 1920, height: 1080),
@@ -48,8 +107,88 @@ struct CoordinateConverterTests {
         ]
         let icons = [IconPosition(name: "file.txt", x: 1900, y: 50)]
         let result = CoordinateConverter.remap(icons: icons, from: saved, to: current)
-        #expect(result[0].x == 108)
-        #expect(result[0].y == 50)
+        // Icon from removed display should be parked at bottom of primary
+        #expect(result[0].y > 900)  // near bottom
+        #expect(result[0].x >= 20)  // within bounds
+        #expect(result[0].x <= 1772)
+    }
+
+    @Test("icon on remaining display keeps its position")
+    func remapTwoToOneNative() {
+        let saved = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
+            DisplayFrame(x: 1792, y: 0, width: 1920, height: 1080),
+        ]
+        let current = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
+        ]
+        let icons = [IconPosition(name: "native.txt", x: 100, y: 200)]
+        let result = CoordinateConverter.remap(icons: icons, from: saved, to: current)
+        #expect(result[0].x == 100)
+        #expect(result[0].y == 200)
+    }
+
+    // MARK: - remap: three displays to two
+
+    @Test("3→2: icons on remaining displays stay, displaced icons parked at bottom")
+    func remapThreeToTwo() {
+        let saved = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
+            DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080),
+            DisplayFrame(x: 1792, y: 0, width: 1920, height: 1080),
+        ]
+        let current = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
+            DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080),
+        ]
+        let icons = [
+            IconPosition(name: "builtin.txt", x: 100, y: 100),    // on Built-in
+            IconPosition(name: "left.txt", x: -1800, y: 50),      // on DELL left
+            IconPosition(name: "right.txt", x: 1900, y: 50),      // on DELL right (removed)
+        ]
+        let result = CoordinateConverter.remap(icons: icons, from: saved, to: current)
+
+        // Icons on remaining displays keep positions
+        let builtin = result.first { $0.name == "builtin.txt" }!
+        #expect(builtin.x == 100)
+        #expect(builtin.y == 100)
+
+        let left = result.first { $0.name == "left.txt" }!
+        #expect(left.x == -1800)
+        #expect(left.y == 50)
+
+        // Icon on removed display is parked at bottom of its target (Built-in)
+        let right = result.first { $0.name == "right.txt" }!
+        #expect(right.y > 900)  // near bottom of Built-in (height 1120)
+        #expect(right.x >= 20 && right.x <= 1772)
+    }
+
+    // MARK: - remap: displaced icons grid spacing
+
+    @Test("multiple displaced icons are spaced out in a grid at bottom")
+    func remapMultipleDisplacedSpacing() {
+        let saved = [
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),
+            DisplayFrame(x: 1920, y: 0, width: 1920, height: 1080),
+        ]
+        let current = [
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),
+        ]
+        let icons = [
+            IconPosition(name: "a.txt", x: 2000, y: 50),
+            IconPosition(name: "b.txt", x: 2100, y: 50),
+            IconPosition(name: "c.txt", x: 2200, y: 50),
+        ]
+        let result = CoordinateConverter.remap(icons: icons, from: saved, to: current)
+
+        // All should be parked near bottom
+        for icon in result {
+            #expect(icon.y > 800)
+        }
+
+        // All should have distinct x positions (spaced out)
+        let xs = Set(result.map(\.x))
+        #expect(xs.count == 3)
     }
 
     // MARK: - remap: boundary clamping
@@ -57,15 +196,18 @@ struct CoordinateConverterTests {
     @Test("icon at extreme position is clamped with 20px padding")
     func remapClamping() {
         let saved = [
-            DisplayFrame(x: 0, y: 0, width: 3840, height: 2160),
-        ]
-        let current = [
             DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),
         ]
-        let icons = [IconPosition(name: "far.txt", x: 3800, y: 2100)]
+        let current = [
+            DisplayFrame(x: 0, y: 0, width: 800, height: 600),
+        ]
+        let icons = [IconPosition(name: "far.txt", x: 1800, y: 1000)]
         let result = CoordinateConverter.remap(icons: icons, from: saved, to: current)
-        #expect(result[0].x == 1900)
-        #expect(result[0].y == 1060)
+        // Displaced (no overlap since sizes differ completely, but there IS overlap
+        // because both start at 0,0). Actually 800x600 overlaps with 1920x1080 at 0,0.
+        // So this is a native icon, clamped to smaller display.
+        #expect(result[0].x == 780)  // 0 + 800 - 20
+        #expect(result[0].y == 580)  // 0 + 600 - 20
     }
 
     @Test("icon near origin is clamped to minimum padding")
@@ -78,6 +220,9 @@ struct CoordinateConverterTests {
         ]
         let icons = [IconPosition(name: "corner.txt", x: 5, y: 5)]
         let result = CoordinateConverter.remap(icons: icons, from: saved, to: current)
+        // These displays don't overlap (saved starts at 0, current at 100, but
+        // saved 0..1920 overlaps with current 100..2020), so there IS overlap.
+        // relX = 5-0 = 5, newX = 100+5 = 105, clamped to min 120
         #expect(result[0].x == 120)
         #expect(result[0].y == 120)
     }

@@ -96,5 +96,5 @@ Coordinate conversion works by finding which display each icon was on, calculati
 - [x] Auto-save on launch, display change, quit, and periodic timer
 - [x] Profile management (rename, delete, update)
 - [x] Human-readable auto-profile names with display info
-- [ ] Support for more than 2 displays with display-to-display mapping
+- [x] Smart multi-display mapping with displaced icon parking
 - [ ] App icon and proper macOS distribution (DMG / notarization)

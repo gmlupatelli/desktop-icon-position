@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+._*
+
+# Xcode (future macOS app)
+macos-app/build/
+macos-app/*.xcodeproj/xcuserdata/
+macos-app/*.xcworkspace/xcuserdata/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+
+# Profiles (user data, not repo content)
+# Uncomment if you don't want to track test profiles:
+# *.txt

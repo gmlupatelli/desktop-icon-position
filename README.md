@@ -97,4 +97,5 @@ Coordinate conversion works by finding which display each icon was on, calculati
 - [x] Profile management (rename, delete, update)
 - [x] Human-readable auto-profile names with display info
 - [x] Smart multi-display mapping with displaced icon parking
-- [ ] App icon and proper macOS distribution (DMG / notarization)
+- [x] App icon and custom menu bar icon
+- [ ] Proper macOS distribution (DMG / notarization)

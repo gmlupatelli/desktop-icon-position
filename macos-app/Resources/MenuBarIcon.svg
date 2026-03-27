@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">
+  <!-- Menu bar template image: crosshair + 4 rounded rectangles -->
+  <!-- macOS will color this automatically for light/dark mode -->
+
+  <!-- Crosshair arms -->
+  <g stroke="black" stroke-width="3" stroke-linecap="round">
+    <!-- Top arm -->
+    <line x1="18" y1="2" x2="18" y2="13"/>
+    <!-- Bottom arm -->
+    <line x1="18" y1="23" x2="18" y2="34"/>
+    <!-- Left arm -->
+    <line x1="2" y1="18" x2="13" y2="18"/>
+    <!-- Right arm -->
+    <line x1="23" y1="18" x2="34" y2="18"/>
+  </g>
+
+  <!-- Center dot -->
+  <circle cx="18" cy="18" r="3" fill="black"/>
+
+  <!-- 4 small rounded rectangles in quadrants (representing desktop icons) -->
+  <rect x="7" y="7" width="6" height="6" rx="1.2" fill="black"/>
+  <rect x="23" y="7" width="6" height="6" rx="1.2" fill="black"/>
+  <rect x="7" y="23" width="6" height="6" rx="1.2" fill="black"/>
+  <rect x="23" y="23" width="6" height="6" rx="1.2" fill="black"/>
+</svg>

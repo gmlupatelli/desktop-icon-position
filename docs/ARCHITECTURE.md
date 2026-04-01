@@ -11,9 +11,13 @@ desktop-icon-position/
 │   └── ARCHITECTURE.md                # This file
 ├── macos-app/
 │   ├── Package.swift                  # SPM project, macOS 14+, Swift 6.0
-│   ├── Resources/Info.plist           # LSUIElement, NSAppleEventsUsageDescription
+│   ├── Resources/
+│   │   ├── Info.plist                 # Bundle config (LSUIElement, permissions)
+│   │   ├── DesktopIconPosition.entitlements  # Code signing entitlements
+│   │   ├── AppIcon.svg                # Source app icon (1024x1024)
+│   │   └── MenuBarIcon.svg            # Source menu bar icon
 │   ├── Sources/DesktopIconPosition/
-│   │   ├── App.swift                  # @main, MenuBarExtra
+│   │   ├── App.swift                  # @main, MenuBarExtra, MenuBarIcon
 │   │   ├── Models/
 │   │   │   ├── DisplayFrame.swift     # Display geometry (Quartz coords)
 │   │   │   ├── IconPosition.swift     # Icon name + x,y
@@ -31,9 +35,14 @@ desktop-icon-position/
 │       ├── CoordinateConverterTests.swift
 │       ├── DisplayServiceTests.swift
 │       └── ProfileManagerTests.swift
-└── scripts/
-    ├── README.md                      # Script-specific docs
-    └── desktop_icons.sh               # Legacy shell script
+├── scripts/
+│   ├── README.md                      # Script-specific docs
+│   ├── desktop_icons.sh               # Legacy shell script
+│   ├── build-app.sh                   # Build .app bundle + DMG
+│   └── generate-icns.swift            # SVG → .icns icon generation
+└── build/                             # Build output (gitignored)
+    ├── DesktopIconPosition.app/
+    └── DesktopIconPosition.dmg
 ```
 
 ## macOS App Architecture
@@ -204,6 +213,38 @@ Both the app and script use the same restore flow:
 4. **Post-restore verification** — after 3 seconds, re-read positions, reapply any that drifted (2px tolerance)
 
 Inspired by [Desktop Icon Manager (DIM)](https://github.com/com-entonos/Desktop-Icon-Manager).
+
+## Build Pipeline
+
+The build script (`scripts/build-app.sh`) assembles a proper macOS `.app` bundle from the SPM build output:
+
+```
+scripts/build-app.sh
+       │
+       ├─ swift build -c release --package-path macos-app
+       │
+       ├─ Generate AppIcon.icns (if missing)
+       │     └─ scripts/generate-icns.swift
+       │         └─ AppIcon.svg → NSImage → PNG ×10 sizes → iconutil → .icns
+       │
+       ├─ Assemble .app bundle
+       │     build/DesktopIconPosition.app/Contents/
+       │       ├─ Info.plist
+       │       ├─ PkgInfo
+       │       ├─ MacOS/DesktopIconPosition
+       │       └─ Resources/AppIcon.icns
+       │
+       ├─ Code signing (optional, if SIGNING_IDENTITY is set)
+       │     └─ codesign --deep --options runtime --entitlements ...
+       │
+       ├─ Notarization (optional, if NOTARIZE=1)
+       │     └─ notarytool submit → stapler staple
+       │
+       └─ Create DMG
+             └─ hdiutil create (app + Applications symlink)
+```
+
+Code signing and notarization are opt-in via environment variables. Without them, the build produces an unsigned `.app` and DMG that work for local development (users may need to right-click → Open to bypass Gatekeeper).
 
 ## Known Limitations
 

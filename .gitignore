@@ -17,6 +17,11 @@ DerivedData/
 *.perspectivev3
 xcuserdata/
 
+# Build output
+build/
+macos-app/Resources/AppIcon.icns
+macos-app/Resources/AppIcon.iconset/
+
 # Profiles (user data, not repo content)
 # Uncomment if you don't want to track test profiles:
 # *.txt

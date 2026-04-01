@@ -45,10 +45,39 @@ The app automatically matches the right profile to your current display setup an
 
 Requires **macOS 14+** and **Xcode** (for Swift 6.0).
 
+### Quick Development Build
+
 ```bash
 cd macos-app
 swift build
 .build/debug/DesktopIconPosition
+```
+
+### Production Build (.app + DMG)
+
+```bash
+scripts/build-app.sh
+```
+
+This produces:
+- `build/DesktopIconPosition.app` — proper macOS app bundle with icon
+- `build/DesktopIconPosition.dmg` — disk image with drag-to-Applications
+
+To install, open the DMG and drag the app to Applications.
+
+### Code Signing (Optional)
+
+Set environment variables to sign and notarize:
+
+```bash
+# Sign only
+SIGNING_IDENTITY="Developer ID Application: Name (TEAMID)" scripts/build-app.sh
+
+# Sign + notarize
+SIGNING_IDENTITY="Developer ID Application: Name (TEAMID)" \
+  NOTARIZE=1 APPLE_ID="you@example.com" TEAM_ID="TEAMID" \
+  APP_PASSWORD="xxxx-xxxx-xxxx-xxxx" \
+  scripts/build-app.sh
 ```
 
 Or open `macos-app/Package.swift` in Xcode and build/run from there.
@@ -98,4 +127,4 @@ Coordinate conversion works by finding which display each icon was on, calculati
 - [x] Human-readable auto-profile names with display info
 - [x] Smart multi-display mapping with displaced icon parking
 - [x] App icon and custom menu bar icon
-- [ ] Proper macOS distribution (DMG / notarization)
+- [x] Proper macOS distribution (.app bundle + DMG)

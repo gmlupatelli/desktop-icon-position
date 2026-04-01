@@ -21,6 +21,7 @@ xcuserdata/
 build/
 macos-app/Resources/AppIcon.icns
 macos-app/Resources/AppIcon.iconset/
+macos-app/Resources/VolumeIcon.iconset/
 
 # Profiles (user data, not repo content)
 # Uncomment if you don't want to track test profiles:

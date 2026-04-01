@@ -22,6 +22,9 @@ APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 DMG_PATH="${BUILD_DIR}/${APP_NAME}.dmg"
 RESOURCES_DIR="${REPO_ROOT}/macos-app/Resources"
 ICNS_PATH="${RESOURCES_DIR}/AppIcon.icns"
+DMG_BG="${BUILD_DIR}/dmg-background.png"
+DMG_BG_2X="${BUILD_DIR}/dmg-background@2x.png"
+VOLUME_ICON="${BUILD_DIR}/VolumeIcon.icns"
 
 echo "=== Building ${BUNDLE_NAME} ==="
 
@@ -111,23 +114,103 @@ if [[ "${NOTARIZE:-}" == "1" ]]; then
     echo "  Notarized and stapled."
 fi
 
-# --- Step 6: Create DMG ---
+# --- Step 6: Generate DMG assets if missing ---
+if [[ ! -f "$DMG_BG" || ! -f "$DMG_BG_2X" || ! -f "$VOLUME_ICON" ]]; then
+    echo "→ Generating DMG assets (background + volume icon)..."
+    swift "${REPO_ROOT}/scripts/generate-dmg-assets.swift"
+fi
+
+# --- Step 7: Create polished DMG ---
 echo "→ Creating DMG..."
 rm -f "$DMG_PATH"
 
-# Stage DMG contents
-DMG_STAGING="${BUILD_DIR}/dmg-staging"
-rm -rf "$DMG_STAGING"
-mkdir -p "$DMG_STAGING"
-cp -R "$APP_BUNDLE" "$DMG_STAGING/"
-ln -s /Applications "$DMG_STAGING/Applications"
+DMG_TEMP="${BUILD_DIR}/${APP_NAME}-temp.dmg"
+VOLUME_PATH="/Volumes/${BUNDLE_NAME}"
 
-hdiutil create -volname "$BUNDLE_NAME" \
-    -srcfolder "$DMG_STAGING" \
-    -ov -format UDZO \
-    "$DMG_PATH"
+# Calculate DMG size (app size + 20MB headroom)
+APP_SIZE_KB=$(du -sk "$APP_BUNDLE" | cut -f1)
+DMG_SIZE_KB=$(( APP_SIZE_KB + 20480 ))
 
-rm -rf "$DMG_STAGING"
+# Create writable DMG
+hdiutil create -size "${DMG_SIZE_KB}k" -type UDIF -fs HFS+ \
+    -volname "$BUNDLE_NAME" "$DMG_TEMP"
+
+# Mount it and capture device path
+ATTACH_OUTPUT=$(hdiutil attach "$DMG_TEMP" -mountpoint "$VOLUME_PATH" -nobrowse)
+DEVICE=$(echo "$ATTACH_OUTPUT" | grep Apple_HFS | awk '{print $1}')
+echo "  Mounted on device: ${DEVICE}"
+
+# Copy app and create Applications symlink
+cp -R "$APP_BUNDLE" "$VOLUME_PATH/"
+ln -s /Applications "$VOLUME_PATH/Applications"
+
+# Add hidden background images (Retina support)
+mkdir -p "$VOLUME_PATH/.background"
+if [[ -f "$DMG_BG" ]]; then
+    cp "$DMG_BG" "$VOLUME_PATH/.background/background.png"
+fi
+if [[ -f "$DMG_BG_2X" ]]; then
+    cp "$DMG_BG_2X" "$VOLUME_PATH/.background/background@2x.png"
+fi
+
+# Set volume icon
+if [[ -f "$VOLUME_ICON" ]]; then
+    cp "$VOLUME_ICON" "$VOLUME_PATH/.VolumeIcon.icns"
+    SetFile -a C "$VOLUME_PATH" &>/dev/null || true
+fi
+
+# Style the DMG window with AppleScript
+# Window size: 660x400, app at (165, 175), Applications at (495, 195)
+echo "  Styling Finder window..."
+osascript <<'APPLESCRIPT'
+tell application "Finder"
+    tell disk "Desktop Icon Position"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set bounds of container window to {100, 100, 760, 532}
+        set viewOptions to the icon view options of container window
+        set arrangement of viewOptions to not arranged
+        set icon size of viewOptions to 160
+        set text size of viewOptions to 13
+        set background picture of viewOptions to file ".background:background.png"
+        set position of item "DesktopIconPosition.app" of container window to {165, 165}
+        set position of item "Applications" of container window to {495, 165}
+        close
+        open
+        update without registering applications
+        delay 3
+        close
+    end tell
+end tell
+APPLESCRIPT
+
+# Wait for Finder to write .DS_Store
+sync
+sleep 2
+
+# Hide hidden files
+SetFile -a V "$VOLUME_PATH/.background" &>/dev/null || true
+SetFile -a V "$VOLUME_PATH/.VolumeIcon.icns" &>/dev/null || true
+
+# Tell Finder to release the volume
+osascript -e "tell application \"Finder\" to eject disk \"${BUNDLE_NAME}\"" &>/dev/null || true
+sleep 3
+
+# Unmount using device path (more reliable than mount point)
+for i in 1 2 3; do
+    if ! mount | grep -q "$VOLUME_PATH"; then
+        break
+    fi
+    hdiutil detach "$DEVICE" -force &>/dev/null || true
+    sleep 2
+done
+
+# Convert to compressed read-only DMG
+hdiutil convert "$DMG_TEMP" -format UDZO -imagekey zlib-level=9 -o "$DMG_PATH"
+rm -f "$DMG_TEMP"
+
 echo "  DMG: ${DMG_PATH}"
 
 # --- Done ---

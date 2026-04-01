@@ -59,23 +59,25 @@ desktop-icon-position/
 ### Data Flow
 
 ```
-Display Change Notification
-       │
-       ▼
-AppViewModel.handleDisplayChange()
-       │
-       ├─ autoSaveOnDisplayChange? → saveAutoIfIconsExist() [save outgoing config]
-       │
-       ├─ Update lastFingerprint
-       │
-       └─ autoRestoreEnabled? → restoreAuto()
-                                    │
-                                    ├─ ProfileManager.findProfile(forFingerprint:)
-                                    ├─ CoordinateConverter.remap(icons:from:to:)
-                                    ├─ FinderService.restoreSettings()
-                                    ├─ FinderService.disableArrangement()
-                                    ├─ FinderService.batchSetPositions()
-                                    └─ FinderService.verifyAndReapply() [after 3s delay]
+Display Change Notification          App Launch
+       │                                  │
+       ▼                                  ▼
+AppViewModel.handleDisplayChange()   AppViewModel.start()
+       │                                  │
+       ├─ autoSaveOnDisplayChange?        ├─ autoSaveOnLaunch?
+       │  → saveAutoIfIconsExist()        │  → saveAutoIfIconsExist()
+       │                                  │
+       ├─ Update lastFingerprint          └─ autoRestoreOnLaunch?
+       │                                     → restoreAuto()
+       └─ autoRestoreEnabled?
+          → restoreAuto()
+                │
+                ├─ ProfileManager.findProfile(forFingerprint:)
+                ├─ CoordinateConverter.remap(icons:from:to:)
+                ├─ FinderService.restoreSettings()
+                ├─ FinderService.disableArrangement()
+                ├─ FinderService.batchSetPositions()
+                └─ FinderService.verifyAndReapply() [after 3s delay]
 ```
 
 ### Services
@@ -92,9 +94,10 @@ AppViewModel.handleDisplayChange()
 | Property | Type | Persistence | Description |
 |----------|------|-------------|-------------|
 | `launchAtLogin` | `Bool` | SMAppService | macOS Login Items |
-| `autoRestoreEnabled` | `Bool` | UserDefaults | Auto-restore on display change |
+| `autoRestoreEnabled` | `Bool` | UserDefaults | Auto-restore on display change (default: true) |
+| `autoRestoreOnLaunch` | `Bool` | UserDefaults | Auto-restore on app launch (default: true) |
 | `autoSaveOnLaunch` | `Bool` | UserDefaults | Save auto profile at startup |
-| `autoSaveOnDisplayChange` | `Bool` | UserDefaults | Save outgoing config before restore |
+| `autoSaveOnDisplayChange` | `Bool` | UserDefaults | Save outgoing config before restore (default: true) |
 | `autoSaveOnQuit` | `Bool` | UserDefaults | Save auto profile before quitting |
 | `autoSaveOnTimer` | `Bool` | UserDefaults | Periodic save toggle |
 | `autoSaveIntervalMinutes` | `Int` | UserDefaults | Timer interval (5/10/15/30) |

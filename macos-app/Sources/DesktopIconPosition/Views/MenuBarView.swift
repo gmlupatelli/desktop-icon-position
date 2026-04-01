@@ -90,8 +90,6 @@ struct MenuBarView: View {
         Divider()
 
         Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
-        Toggle("Auto-Restore on Display Change", isOn: $viewModel.autoRestoreEnabled)
-        Toggle("Show Auto Profiles", isOn: $viewModel.showAutoProfiles)
 
         Menu("Auto-Save") {
             Toggle("Save on Launch", isOn: $viewModel.autoSaveOnLaunch)
@@ -110,6 +108,13 @@ struct MenuBarView: View {
                 }
             }
         }
+
+        Menu("Auto-Restore") {
+            Toggle("Restore on Display Change", isOn: $viewModel.autoRestoreEnabled)
+            Toggle("Restore on Launch", isOn: $viewModel.autoRestoreOnLaunch)
+        }
+
+        Toggle("Show Auto Profiles", isOn: $viewModel.showAutoProfiles)
 
         Divider()
 

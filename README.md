@@ -11,7 +11,7 @@ When a MacBook is connected to an external monitor and you arrange desktop icons
 A lightweight menu bar app (no dock icon) that handles everything automatically:
 
 - **Auto-saves** your icon layout on launch, display change, quit, or periodically
-- **Auto-restores** when you connect/disconnect displays — finds the right profile by display fingerprint
+- **Auto-restores** on app launch and when you connect/disconnect displays — finds the right profile by display fingerprint
 - **Coordinate remapping** — converts icon positions between different display configurations
 - **Anti-drift protection** — disables Snap to Grid, batch-sets positions, and verifies after restore
 - **Launch at Login** — starts automatically via macOS Login Items
@@ -25,9 +25,9 @@ A lightweight menu bar app (no dock icon) that handles everything automatically:
 | Update Profile | Overwrite an existing profile with current positions |
 | Restore | Restore any saved profile (auto-converts coordinates if displays changed) |
 | Manage Profiles | Rename or delete saved profiles |
-| Auto-Restore | Toggle automatic restore on display change |
-| Auto-Save | Toggle auto-save on launch, display change, quit, or periodic timer |
 | Launch at Login | Start the app automatically when you log in |
+| Auto-Save | Toggle auto-save on launch, display change, quit, or periodic timer |
+| Auto-Restore | Toggle auto-restore on display change and on launch |
 | Show Auto Profiles | Toggle visibility of auto-generated profiles in menus |
 
 ### Auto Profiles

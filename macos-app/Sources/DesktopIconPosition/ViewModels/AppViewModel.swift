@@ -36,6 +36,9 @@ final class AppViewModel {
     var autoRestoreEnabled: Bool = UserDefaults.standard.bool(forKey: "autoRestoreEnabled") {
         didSet { UserDefaults.standard.set(autoRestoreEnabled, forKey: "autoRestoreEnabled") }
     }
+    var autoRestoreOnLaunch: Bool = UserDefaults.standard.bool(forKey: "autoRestoreOnLaunch") {
+        didSet { UserDefaults.standard.set(autoRestoreOnLaunch, forKey: "autoRestoreOnLaunch") }
+    }
     var showAutoProfiles: Bool = UserDefaults.standard.bool(forKey: "showAutoProfiles") {
         didSet { UserDefaults.standard.set(showAutoProfiles, forKey: "showAutoProfiles") }
     }
@@ -91,6 +94,9 @@ final class AppViewModel {
 
         if autoSaveOnLaunch {
             saveAutoIfIconsExist()
+        }
+        if autoRestoreOnLaunch {
+            restoreAuto()
         }
         if autoSaveOnTimer {
             startAutoSaveTimer()

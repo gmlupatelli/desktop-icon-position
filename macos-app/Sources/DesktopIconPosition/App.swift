@@ -74,6 +74,13 @@ struct DesktopIconPositionApp: App {
     }
 
     init() {
+        // Register defaults before any UserDefaults reads
+        UserDefaults.standard.register(defaults: [
+            "autoSaveOnDisplayChange": true,
+            "autoRestoreEnabled": true,
+            "autoRestoreOnLaunch": true,
+        ])
+
         // Delay start until app is ready
         DispatchQueue.main.async { [self] in
             viewModel.start()

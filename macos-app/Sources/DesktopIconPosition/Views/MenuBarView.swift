@@ -28,6 +28,16 @@ struct MenuBarView: View {
             .foregroundStyle(.secondary)
             .onAppear { viewModel.refreshProfiles() }
 
+        if !viewModel.permissionGranted {
+            Divider()
+            Button("Open System Settings") {
+                viewModel.openAutomationSettings()
+            }
+            Button("Re-check Permission") {
+                viewModel.recheckPermission()
+            }
+        }
+
         Divider()
 
         Button("Save Auto") {

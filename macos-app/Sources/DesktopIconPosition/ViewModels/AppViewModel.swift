@@ -13,6 +13,7 @@ final class AppViewModel {
 
     var profiles: [ProfileManager.ProfileSummary] = []
     var statusMessage: String = "Ready"
+    var permissionGranted: Bool = true
 
     private var isUpdatingLaunchAtLogin = false
     var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled {
@@ -92,15 +93,15 @@ final class AppViewModel {
         lastFingerprint = DisplayService.fingerprint()
         startDisplayObserver()
 
-        if autoSaveOnLaunch {
-            saveAutoIfIconsExist()
+        // Check Automation permission before any Finder operations
+        permissionGranted = FinderService.checkPermission()
+        guard permissionGranted else {
+            statusMessage = "Permission required \u{2014} open System Settings to grant access"
+            stopAutoSaveTimer()
+            return
         }
-        if autoRestoreOnLaunch {
-            restoreAuto()
-        }
-        if autoSaveOnTimer {
-            startAutoSaveTimer()
-        }
+
+        resumeAfterPermissionGranted(runLaunchActions: true)
     }
 
     func stop() {
@@ -140,7 +141,7 @@ final class AppViewModel {
             refreshProfiles()
             statusMessage = "Saved \(icons.count) icons to \"\(name)\""
         } catch {
-            statusMessage = "Save failed: \(error.localizedDescription)"
+            handleFinderError(error, action: "Save")
         }
     }
 
@@ -171,7 +172,7 @@ final class AppViewModel {
             refreshProfiles()
             statusMessage = "Updated \(icons.count) icons in \"\(name)\""
         } catch {
-            statusMessage = "Update failed: \(error.localizedDescription)"
+            handleFinderError(error, action: "Update")
         }
     }
 
@@ -182,6 +183,9 @@ final class AppViewModel {
             guard !icons.isEmpty else { return }
             saveAuto()
         } catch {
+            if FinderService.isPermissionError(error) {
+                handleFinderError(error, action: "Auto-save")
+            }
             // Finder may not be ready — skip silently
         }
     }
@@ -218,15 +222,19 @@ final class AppViewModel {
             let expected = icons
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(3))
-                let corrected = try? FinderService.verifyAndReapply(expected: expected)
-                if let corrected, corrected > 0 {
-                    statusMessage = "Restored \(expected.count) icons, corrected \(corrected)"
-                } else {
-                    statusMessage = "Restored \(expected.count) icons"
+                do {
+                    let corrected = try FinderService.verifyAndReapply(expected: expected)
+                    if corrected > 0 {
+                        statusMessage = "Restored \(expected.count) icons, corrected \(corrected)"
+                    } else {
+                        statusMessage = "Restored \(expected.count) icons"
+                    }
+                } catch {
+                    handleFinderError(error, action: "Restore")
                 }
             }
         } catch {
-            statusMessage = "Restore failed: \(error.localizedDescription)"
+            handleFinderError(error, action: "Restore")
         }
     }
 
@@ -240,7 +248,7 @@ final class AppViewModel {
             }
             restore(name: name)
         } catch {
-            statusMessage = "Auto-restore failed: \(error.localizedDescription)"
+            handleFinderError(error, action: "Auto-restore")
         }
     }
 
@@ -284,6 +292,11 @@ final class AppViewModel {
         let newFingerprint = DisplayService.fingerprint()
         guard newFingerprint != lastFingerprint else { return }
 
+        guard permissionGranted else {
+            statusMessage = "Permission required \u{2014} open System Settings to grant access"
+            return
+        }
+
         // Save outgoing display config before switching
         if autoSaveOnDisplayChange {
             saveAutoIfIconsExist()
@@ -315,5 +328,56 @@ final class AppViewModel {
     private func stopAutoSaveTimer() {
         autoSaveTimer?.invalidate()
         autoSaveTimer = nil
+    }
+
+    // MARK: - Permission Helpers
+
+    /// Re-check Automation permission (e.g. after user grants access in System Settings).
+    func recheckPermission() {
+        let wasGranted = permissionGranted
+        permissionGranted = FinderService.checkPermission()
+        if permissionGranted {
+            resumeAfterPermissionGranted(runLaunchActions: !wasGranted)
+            if wasGranted || (!autoSaveOnLaunch && !autoRestoreOnLaunch) {
+                statusMessage = "Permission granted"
+            }
+        } else {
+            statusMessage = "Permission required \u{2014} open System Settings to grant access"
+            stopAutoSaveTimer()
+        }
+    }
+
+    /// Open System Settings to the Automation privacy pane.
+    func openAutomationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func handleFinderError(_ error: Error, action: String) {
+        if FinderService.isPermissionError(error) {
+            permissionGranted = false
+            statusMessage = "Permission required \u{2014} open System Settings to grant access"
+            stopAutoSaveTimer()
+        } else {
+            statusMessage = "\(action) failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func resumeAfterPermissionGranted(runLaunchActions: Bool) {
+        if runLaunchActions {
+            if autoSaveOnLaunch {
+                saveAutoIfIconsExist()
+            }
+            if autoRestoreOnLaunch {
+                restoreAuto()
+            }
+        }
+
+        if autoSaveOnTimer {
+            startAutoSaveTimer()
+        } else {
+            stopAutoSaveTimer()
+        }
     }
 }

@@ -94,6 +94,7 @@ AppViewModel.handleDisplayChange()   AppViewModel.start()
 | Property | Type | Persistence | Description |
 |----------|------|-------------|-------------|
 | `launchAtLogin` | `Bool` | SMAppService | macOS Login Items |
+| `permissionGranted` | `Bool` | In-memory | Whether Automation permission to control Finder is granted |
 | `autoRestoreEnabled` | `Bool` | UserDefaults | Auto-restore on display change (default: true) |
 | `autoRestoreOnLaunch` | `Bool` | UserDefaults | Auto-restore on app launch (default: true) |
 | `autoSaveOnLaunch` | `Bool` | UserDefaults | Save auto profile at startup |

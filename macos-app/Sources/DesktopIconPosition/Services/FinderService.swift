@@ -134,6 +134,23 @@ final class FinderService {
         return drifted.count
     }
 
+    // MARK: - Permission Check
+
+    /// Test whether the app has Automation permission to control Finder.
+    /// On first call, this may trigger the macOS consent prompt.
+    static func checkPermission() -> Bool {
+        var errorInfo: NSDictionary?
+        let script = NSAppleScript(source: "tell application \"Finder\" to name of startup disk")!
+        script.executeAndReturnError(&errorInfo)
+        return errorInfo == nil
+    }
+
+    /// Whether an error indicates a missing Automation permission.
+    static func isPermissionError(_ error: Error) -> Bool {
+        let msg = error.localizedDescription.lowercased()
+        return msg.contains("not authorised") || msg.contains("not authorized")
+    }
+
     // MARK: - Private Helpers
 
     @discardableResult

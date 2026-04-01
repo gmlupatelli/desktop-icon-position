@@ -85,7 +85,13 @@ if [[ -n "${SIGNING_IDENTITY:-}" ]]; then
     # Verify signature
     codesign --verify --verbose=2 "$APP_BUNDLE"
 else
-    echo "  Skipping code signing (set SIGNING_IDENTITY to enable)"
+    echo "→ Ad-hoc signing (sufficient for Launch at Login)..."
+    ENTITLEMENTS="${RESOURCES_DIR}/${APP_NAME}.entitlements"
+    codesign --deep --force \
+        --entitlements "$ENTITLEMENTS" \
+        --sign - \
+        "$APP_BUNDLE"
+    echo "  Ad-hoc signed."
 fi
 
 # --- Step 5: Notarization (optional) ---
@@ -160,7 +166,8 @@ if [[ -f "$VOLUME_ICON" ]]; then
 fi
 
 # Style the DMG window with AppleScript
-# Window size: 660x400, app at (165, 175), Applications at (495, 195)
+# Window size: 660x400, app at (180, 165), Applications at (510, 165)
+# Icons shifted +15px right to account for Finder's scrollbar gutter
 echo "  Styling Finder window..."
 osascript <<'APPLESCRIPT'
 tell application "Finder"

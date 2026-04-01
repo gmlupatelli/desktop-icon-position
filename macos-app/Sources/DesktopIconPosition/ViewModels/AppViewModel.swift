@@ -14,8 +14,12 @@ final class AppViewModel {
     var profiles: [ProfileManager.ProfileSummary] = []
     var statusMessage: String = "Ready"
 
+    private var isUpdatingLaunchAtLogin = false
     var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled {
         didSet {
+            guard !isUpdatingLaunchAtLogin else { return }
+            isUpdatingLaunchAtLogin = true
+            defer { isUpdatingLaunchAtLogin = false }
             do {
                 if launchAtLogin {
                     try SMAppService.mainApp.register()

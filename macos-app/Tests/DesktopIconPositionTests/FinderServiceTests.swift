@@ -6,6 +6,41 @@ import Foundation
 @MainActor
 struct FinderServiceParsingTests {
 
+    // MARK: - Script generation
+
+    @Test("read script escapes line breaks and backslashes before serialization")
+    func readScriptEscapesUnsafeCharacters() {
+        let source = FinderService.readIconPositionsSource()
+        #expect(source.contains("set AppleScript's text item delimiters to (ASCII character 92) & (ASCII character 92)"))
+        #expect(source.contains("set AppleScript's text item delimiters to (ASCII character 92) & \"n\""))
+        #expect(source.contains("set AppleScript's text item delimiters to (ASCII character 92) & \"r\""))
+    }
+
+    @Test("batch script is omitted for empty icon list")
+    func batchScriptForEmptyList() {
+        #expect(FinderService.batchSetPositionsSource([]) == nil)
+    }
+
+    @Test("AppleScript string literal escapes quotes and backslashes")
+    func appleScriptLiteralEscapesQuotesAndBackslashes() {
+        let literal = FinderService.appleScriptStringLiteral("quote\"slash\\name")
+        #expect(literal == "\"quote\\\"slash\\\\name\"")
+    }
+
+    @Test("AppleScript string literal uses ASCII character for newline")
+    func appleScriptLiteralUsesAsciiForNewline() {
+        let literal = FinderService.appleScriptStringLiteral("line1\nline2")
+        #expect(literal == "\"line1\" & (ASCII character 10) & \"line2\"")
+    }
+
+    @Test("batch script embeds newline-safe AppleScript expression")
+    func batchScriptUsesGeneratedLiteral() {
+        let source = FinderService.batchSetPositionsSource([
+            IconPosition(name: "line1\nline2", x: 10, y: 20),
+        ])
+        #expect(source?.contains("set desktop position of item (\"line1\" & (ASCII character 10) & \"line2\") of desktop to {10, 20}") == true)
+    }
+
     // MARK: - parseIconPositions
 
     @Test("simple name parsed correctly")

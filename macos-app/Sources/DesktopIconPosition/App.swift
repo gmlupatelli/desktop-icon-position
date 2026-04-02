@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Darwin
 
 /// Generates template images for the menu bar icon
 enum MenuBarIcon {
@@ -64,6 +65,7 @@ enum MenuBarIcon {
 @main
 struct DesktopIconPositionApp: App {
     @State private var viewModel = AppViewModel()
+    private let smokeTestEnabled = FinderSmokeTestRunner.isEnabled()
 
     var body: some Scene {
         MenuBarExtra {
@@ -80,9 +82,20 @@ struct DesktopIconPositionApp: App {
             "autoRestoreOnLaunch": true,
         ])
 
-        // Delay start until app is ready
-        DispatchQueue.main.async { [self] in
-            viewModel.start()
+        if smokeTestEnabled {
+            DispatchQueue.main.async {
+                Task { @MainActor in
+                    let exitCode = await FinderSmokeTestRunner.run()
+                    fflush(stdout)
+                    fflush(stderr)
+                    exit(exitCode)
+                }
+            }
+        } else {
+            // Delay start until app is ready
+            DispatchQueue.main.async { [self] in
+                viewModel.start()
+            }
         }
     }
 }

@@ -54,6 +54,16 @@ swift build
 .build/debug/DesktopIconPosition
 ```
 
+### Finder Smoke Test
+
+To manually exercise the real Finder AppleScript read/write path against temporary desktop items with edge-case names:
+
+```bash
+swift run --package-path macos-app DesktopIconPosition --finder-smoke-test
+```
+
+This creates and removes temporary files on your Desktop and requires Finder Automation permission.
+
 ### Production Build (.app + DMG)
 
 ```bash

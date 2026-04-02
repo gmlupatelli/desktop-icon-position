@@ -21,9 +21,15 @@ final class FinderService {
 
     /// Read all desktop icon positions. Returns name + Quartz coordinates.
     static func readIconPositions() throws -> [IconPosition] {
+        let output = try executeAppleScript(readIconPositionsSource())
+        return parseIconPositions(output)
+    }
+
+    /// AppleScript source for reading desktop icon positions.
+    static func readIconPositionsSource() -> String {
         // Escape backslash, linefeed, and return in icon names so the
         // pipe-delimited output stays one-line-per-icon.
-        let source = """
+        """
         tell application "Finder"
             set allItems to every item of desktop
             set posData to ""
@@ -56,8 +62,6 @@ final class FinderService {
         end tell
         return posData
         """
-        let output = try executeAppleScript(source)
-        return parseIconPositions(output)
     }
 
     /// Read current Finder icon size and text size.
@@ -108,7 +112,13 @@ final class FinderService {
     /// Set all icon positions in a single batch, wrapped in `ignoring application responses`
     /// to prevent Finder from rearranging icons mid-restore.
     static func batchSetPositions(_ icons: [IconPosition]) throws {
-        guard !icons.isEmpty else { return }
+        guard let source = batchSetPositionsSource(icons) else { return }
+        try executeAppleScript(source)
+    }
+
+    /// AppleScript source for restoring a batch of icon positions.
+    static func batchSetPositionsSource(_ icons: [IconPosition]) -> String? {
+        guard !icons.isEmpty else { return nil }
         var setStatements = ""
         for icon in icons {
             let nameExpr = appleScriptStringLiteral(icon.name)
@@ -119,14 +129,13 @@ final class FinderService {
             
             """
         }
-        let source = """
+        return """
         tell application "Finder"
             ignoring application responses
         \(setStatements)    end ignoring
         end tell
         return "done"
         """
-        try executeAppleScript(source)
     }
 
     /// Verify positions after restore and re-apply any that drifted more than `tolerance` pixels.
@@ -235,7 +244,7 @@ final class FinderService {
 
     /// Build an AppleScript string expression, handling backslashes, quotes,
     /// and newlines (which cannot appear inside an AppleScript string literal).
-    private static func appleScriptStringLiteral(_ str: String) -> String {
+    static func appleScriptStringLiteral(_ str: String) -> String {
         let escaped = str
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")

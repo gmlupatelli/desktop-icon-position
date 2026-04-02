@@ -60,34 +60,42 @@ desktop-icon-position/
 
 ### Data Flow
 
-```
-Display Change Notification          App Launch
-       │                                  │
-       ▼                                  ▼
-AppViewModel.handleDisplayChange()   AppViewModel.start()
-       │                                  │
-   ├─ AutomationCoordinator.planDisplayChange()
-   │  ├─ permissionGranted?
-   │  │  └─ no → show recovery UI
-   │  ├─ Update lastFingerprint
-   │  └─ autoRestoreEnabled?
-   │     → restoreAuto()
-   │
-   └─ execute planned actions
-                     │
-                     ├─ FinderService.checkPermission()
-                     └─ AutomationCoordinator.planResumeAfterPermissionGranted()
-                        ├─ autoRestoreOnLaunch?
-                        │  → restoreAuto()
-                        └─ autoSaveOnTimer?
-                           → start/stop timer
-                │
-                ├─ ProfileManager.findProfile(forFingerprint:)
-                ├─ CoordinateConverter.remap(icons:from:to:)
-                ├─ FinderService.restoreSettings()
-                ├─ FinderService.disableArrangement()
-                ├─ FinderService.batchSetPositions()
-                └─ FinderService.verifyAndReapply() [after 3s delay]
+```text
+Display Change Notification                   App Launch
+       │                                           │
+       ▼                                           ▼
+AppViewModel.handleDisplayChange()            AppViewModel.start()
+       │                                           │
+       │                                           ├─ FinderService.checkPermission()
+       │                                           │
+       ├─ AutomationCoordinator                    ├─ AutomationCoordinator
+       │   .planDisplayChange()                    │   .planResumeAfterPermissionGranted()
+       │                                           │
+       ├─ permissionGranted?                       ├─ autoRestoreOnLaunch?
+       │  └─ no → skip (UI shows recovery)         │  → issue .restoreAuto action
+       │                                           │
+       ├─ Update lastFingerprint                   └─ autoSaveOnTimer?
+       │                                              → issue timer actions
+       └─ autoRestoreEnabled?                      │
+          → issue .restoreAuto action              │
+       │                                           │
+       └─────────────────────┬─────────────────────┘
+                             ▼
+           AppViewModel.applyAutomationActions()
+                             │
+                             ├─ .setStatusMessage(...)
+                             ├─ .startAutoSaveTimer / .stopAutoSaveTimer
+                             │
+                             └─ .restoreAuto
+                                  │
+                                  ├─ ProfileManager.findProfile(forFingerprint:)
+                                  └─ AppViewModel.restore(name:)
+                                       ├─ ProfileManager.loadProfile(name:)
+                                       ├─ CoordinateConverter.remap(icons:from:to:)
+                                       ├─ FinderService.restoreSettings()
+                                       ├─ FinderService.disableArrangement()
+                                       ├─ FinderService.batchSetPositions()
+                                       └─ FinderService.verifyAndReapply() [after 3s delay]
 ```
 
 If a Finder operation later fails with a permission-denied AppleScript error, `AppViewModel` flips `permissionGranted` to `false`, stops the auto-save timer, and exposes the recovery actions in the menu. `recheckPermission()` retries the lightweight permission probe and, when successful, resumes the launch-time automation that was deferred.

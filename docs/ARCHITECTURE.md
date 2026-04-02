@@ -121,7 +121,7 @@ If a Finder operation later fails with a permission-denied AppleScript error, `A
 | `autoRestoreOnLaunch` | `Bool` | UserDefaults | Auto-restore on app launch (default: true) |
 | `autoSaveOnQuit` | `Bool` | UserDefaults | Save auto profile before quitting |
 | `autoSaveOnTimer` | `Bool` | UserDefaults | Periodic save toggle |
-| `autoSaveIntervalMinutes` | `Int` | UserDefaults | Timer interval (5/10/15/30) |
+| `autoSaveIntervalMinutes` | `Int` | UserDefaults | Timer interval (5/10/15/30/60) |
 | `showAutoProfiles` | `Bool` | UserDefaults | Show/hide `Auto-` profiles in menus |
 
 ### Dialog Implementation

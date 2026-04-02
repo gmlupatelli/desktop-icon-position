@@ -27,7 +27,7 @@ A lightweight menu bar app (no dock icon) that handles everything automatically:
 | Restore | Restore any saved profile (auto-converts coordinates if displays changed) |
 | Manage Profiles | Rename or delete saved profiles |
 | Launch at Login | Start the app automatically when you log in |
-| Auto-Save | Toggle auto-save on launch, display change, quit, or periodic timer |
+| Auto-Save | Toggle auto-save on launch, display change, quit, or a 5/10/15/30/60-minute timer |
 | Auto-Restore | Toggle auto-restore on display change and on launch |
 | Show Auto Profiles | Toggle visibility of auto-generated profiles in menus |
 

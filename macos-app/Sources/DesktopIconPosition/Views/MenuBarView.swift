@@ -118,7 +118,7 @@ struct MenuBarView: View {
             if viewModel.autoSaveOnTimer {
                 Divider()
                 Menu("Interval: \(viewModel.autoSaveIntervalMinutes) min") {
-                    ForEach([5, 10, 15, 30], id: \.self) { minutes in
+                    ForEach([5, 10, 15, 30, 60], id: \.self) { minutes in
                         Button("\(minutes) min") {
                             viewModel.autoSaveIntervalMinutes = minutes
                         }

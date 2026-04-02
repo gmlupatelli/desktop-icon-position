@@ -58,7 +58,7 @@ final class AppViewModel {
             if autoSaveOnTimer { startAutoSaveTimer() } else { stopAutoSaveTimer() }
         }
     }
-    /// Auto-save interval in minutes. Options: 5, 10, 15, 30.
+    /// Auto-save interval in minutes. Options: 5, 10, 15, 30, 60.
     var autoSaveIntervalMinutes: Int = {
         let stored = UserDefaults.standard.integer(forKey: "autoSaveIntervalMinutes")
         return stored > 0 ? stored : 15

@@ -99,40 +99,9 @@ struct MenuBarView: View {
 
         Divider()
 
-        if viewModel.isStableLocation {
-            Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
-        } else {
-            Menu("Launch at Login \u{26A0}") {
-                Text("Move app to /Applications")
-                    .foregroundStyle(.secondary)
-                Button("Reveal in Finder") {
-                    viewModel.revealAppInFinder()
-                }
-            }
+        Button("Settings...") {
+            viewModel.openSettings()
         }
-
-        Menu("Auto-Save") {
-            Toggle("Save on Quit", isOn: $viewModel.autoSaveOnQuit)
-            Toggle("Save Periodically", isOn: $viewModel.autoSaveOnTimer)
-
-            if viewModel.autoSaveOnTimer {
-                Divider()
-                Menu("Interval: \(viewModel.autoSaveIntervalMinutes) min") {
-                    ForEach([5, 10, 15, 30, 60], id: \.self) { minutes in
-                        Button("\(minutes) min") {
-                            viewModel.autoSaveIntervalMinutes = minutes
-                        }
-                    }
-                }
-            }
-        }
-
-        Menu("Auto-Restore") {
-            Toggle("Restore on Display Change", isOn: $viewModel.autoRestoreEnabled)
-            Toggle("Restore on Launch", isOn: $viewModel.autoRestoreOnLaunch)
-        }
-
-        Toggle("Show Auto Profiles", isOn: $viewModel.showAutoProfiles)
 
         Divider()
 

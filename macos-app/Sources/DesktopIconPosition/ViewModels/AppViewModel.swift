@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Observation
 import Foundation
 import ServiceManagement
@@ -89,6 +90,7 @@ final class AppViewModel {
     private var lastFingerprint: String = ""
     private var autoSaveTimer: Timer?
     private let automationCoordinator = AutomationCoordinator()
+    private var settingsWindow: NSWindow?
 
     // MARK: - Lifecycle
 
@@ -351,6 +353,34 @@ final class AppViewModel {
     /// Reveal the app in Finder so the user can drag it to /Applications.
     func revealAppInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: Bundle.main.bundlePath)])
+    }
+
+    /// Open (or bring to front) the Settings window.
+    func openSettings() {
+        if let window = settingsWindow, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let hostingView = NSHostingView(rootView: SettingsView(viewModel: self))
+        hostingView.frame = NSRect(x: 0, y: 0, width: 320, height: 360)
+
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Desktop Icon Position Settings"
+        window.contentView = hostingView
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.level = .floating
+
+        settingsWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - Permission Helpers

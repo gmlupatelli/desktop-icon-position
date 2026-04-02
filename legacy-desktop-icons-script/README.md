@@ -6,15 +6,15 @@
 
 ```bash
 # Make the script executable
-chmod +x scripts/desktop_icons.sh
+chmod +x legacy-desktop-icons-script/desktop_icons.sh
 
 # Save icon positions while docked to external monitor
-./scripts/desktop_icons.sh save docked
+./legacy-desktop-icons-script/desktop_icons.sh save docked
 
 # ... disconnect your external monitor ...
 
 # Restore — icons auto-converted for single display!
-./scripts/desktop_icons.sh restore docked
+./legacy-desktop-icons-script/desktop_icons.sh restore docked
 ```
 
 ## Auto Profiles
@@ -23,13 +23,13 @@ Auto profiles use a display fingerprint (MD5 hash of display geometry) to automa
 
 ```bash
 # Save a profile tagged to your current display configuration
-./scripts/desktop_icons.sh save auto
+./legacy-desktop-icons-script/desktop_icons.sh save auto
 
 # Restore — automatically finds the profile matching your current displays
-./scripts/desktop_icons.sh restore auto
+./legacy-desktop-icons-script/desktop_icons.sh restore auto
 
 # Watch mode — auto-selects the right profile on any display change
-./scripts/desktop_icons.sh watch auto
+./legacy-desktop-icons-script/desktop_icons.sh watch auto
 ```
 
 ## Commands

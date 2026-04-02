@@ -110,7 +110,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for technical details.
 
 ## Shell Script (Legacy)
 
-The original shell script implementation is still available at [scripts/desktop_icons.sh](scripts/). It's useful for automation or environments where the app can't be installed. See the [script README](scripts/README.md) for usage details.
+The original shell script implementation is still available at [legacy-desktop-icons-script/desktop_icons.sh](legacy-desktop-icons-script/). It's useful for automation or environments where the app can't be installed. See the [script README](legacy-desktop-icons-script/README.md) for usage details.
 
 ## How It Works
 

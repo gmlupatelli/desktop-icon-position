@@ -35,10 +35,12 @@ desktop-icon-position/
 │       ├── CoordinateConverterTests.swift
 │       ├── DisplayServiceTests.swift
 │       └── ProfileManagerTests.swift
-├── scripts/
+├── legacy-desktop-icons-script/
 │   ├── README.md                      # Script-specific docs
-│   ├── desktop_icons.sh               # Legacy shell script
+│   └── desktop_icons.sh               # Legacy shell script
+├── scripts/
 │   ├── build-app.sh                   # Build .app bundle + DMG
+│   ├── generate-dmg-assets.swift      # DMG background + layout generation
 │   └── generate-icns.swift            # SVG → .icns icon generation
 └── build/                             # Build output (gitignored)
     ├── DesktopIconPosition.app/
@@ -279,8 +281,14 @@ Code signing and notarization are opt-in via environment variables. Without them
 
 ## Known Limitations
 
-- First run requires granting Accessibility/Automation permissions to the app (or Terminal for the script)
+### App
+
+- First run requires granting Automation permission to control Finder
 - `SMAppService` Launch at Login requires the app to be at a stable filesystem location — the app detects unstable paths, disables stale login-item registrations, and gates the toggle with a warning
-- Filenames containing `|` would break the script's pipe-delimited format (extremely rare on macOS)
 - Auto-profile fingerprint matching returns the first match if multiple profiles share a fingerprint
-- The script cannot read `.json` profiles saved by the app
+
+### Legacy Script
+
+- First run requires granting Accessibility/Automation permissions to Terminal
+- Filenames containing `|` would break the pipe-delimited profile format (extremely rare on macOS)
+- Cannot read `.json` profiles saved by the app

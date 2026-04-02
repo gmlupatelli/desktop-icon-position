@@ -84,6 +84,56 @@ struct CoordinateConverterTests {
         #expect(mapping[2] == 0)  // DELL right (removed) → closest = Built-in
     }
 
+    @Test("shifted layout maps 1:1 instead of collapsing")
+    func matchShifted() {
+        let saved = [
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),
+            DisplayFrame(x: 1920, y: 0, width: 1920, height: 1080),
+        ]
+        let current = [
+            DisplayFrame(x: 960, y: 0, width: 1920, height: 1080),
+            DisplayFrame(x: 2880, y: 0, width: 1920, height: 1080),
+        ]
+        let mapping = CoordinateConverter.matchDisplays(saved: saved, current: current)
+        #expect(mapping[0] == 0)  // saved left → current left
+        #expect(mapping[1] == 1)  // saved right → current right
+    }
+
+    @Test("swapped displays map to correct new positions")
+    func matchSwapped() {
+        let saved = [
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),
+            DisplayFrame(x: 1920, y: 0, width: 1920, height: 1080),
+        ]
+        let current = [
+            DisplayFrame(x: 1920, y: 0, width: 1920, height: 1080),
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),
+        ]
+        let mapping = CoordinateConverter.matchDisplays(saved: saved, current: current)
+        #expect(mapping[0] == 1)  // saved[0] was at (0,0) → current[1] is now at (0,0)
+        #expect(mapping[1] == 0)  // saved[1] was at (1920,0) → current[0] is now at (1920,0)
+    }
+
+    @Test("3→2 with overlap ambiguity: unique assignment + tiebreaker")
+    func matchThreeToTwoAmbiguous() {
+        // saved[0] and saved[1] both overlap current[0], but saved[0] overlaps more.
+        // saved[2] only overlaps current[1].
+        let saved = [
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),       // overlaps current[0] fully
+            DisplayFrame(x: 1440, y: 0, width: 1920, height: 1080),    // overlaps current[0] partially, current[1] partially
+            DisplayFrame(x: 3840, y: 0, width: 1920, height: 1080),    // overlaps current[1] partially
+        ]
+        let current = [
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),       // full match for saved[0]
+            DisplayFrame(x: 1920, y: 0, width: 1920, height: 1080),    // partial match for saved[1] and saved[2]
+        ]
+        let mapping = CoordinateConverter.matchDisplays(saved: saved, current: current)
+        #expect(mapping[0] == 0)  // saved[0] → current[0] (full overlap)
+        #expect(mapping[1] == 1)  // saved[1] → current[1] (unique assignment forces it off current[0])
+        // saved[2] has no remaining unclaimed display → falls back to best match
+        #expect(mapping[2] == 1)  // saved[2] → current[1] (closest/most overlap)
+    }
+
     // MARK: - remap: identity
 
     @Test("same display layout returns identical positions")

@@ -26,7 +26,8 @@ enum CoordinateConverter {
     ///
     /// Returns a mapping of savedIndex → currentIndex.
     /// Matching priority: overlap area (higher = better), then center distance (lower = better).
-    /// Multiple saved displays may map to the same current display (when displays are removed).
+    /// Enforces unique assignment when possible (|saved| ≤ |current|).
+    /// When |saved| > |current|, multiple saved displays may map to the same current display.
     /// Unmatched saved displays fall back to primary (index 0).
     static func matchDisplays(
         saved: [DisplayFrame],
@@ -34,33 +35,63 @@ enum CoordinateConverter {
     ) -> [Int: Int] {
         guard !saved.isEmpty, !current.isEmpty else { return [:] }
 
-        var mapping: [Int: Int] = [:]
-
-        for (si, savedFrame) in saved.enumerated() {
-            var bestIndex = 0
-            var bestOverlap = 0
-            var bestDistance = Int.max
-
-            for (ci, currentFrame) in current.enumerated() {
+        // Step 1: Build score matrix — (overlap, negDistance) per saved×current pair.
+        // Higher overlap is better; for equal overlap, smaller distance is better.
+        var scores: [[(overlap: Int, negDist: Int)]] = []
+        for savedFrame in saved {
+            var row: [(overlap: Int, negDist: Int)] = []
+            for currentFrame in current {
                 let overlap = savedFrame.overlapArea(with: currentFrame)
+                let dx = savedFrame.center.x - currentFrame.center.x
+                let dy = savedFrame.center.y - currentFrame.center.y
+                let dist = dx * dx + dy * dy
+                row.append((overlap: overlap, negDist: -dist))
+            }
+            scores.append(row)
+        }
 
-                if overlap > bestOverlap {
-                    bestOverlap = overlap
+        // Step 2: Greedy assignment with uniqueness.
+        // Sort saved indices by their best score (descending) so the strongest
+        // matches claim current displays first.
+        let sortedSaved = saved.indices.sorted { a, b in
+            let bestA = scores[a].max { lhs, rhs in (lhs.overlap, lhs.negDist) < (rhs.overlap, rhs.negDist) }!
+            let bestB = scores[b].max { lhs, rhs in (lhs.overlap, lhs.negDist) < (rhs.overlap, rhs.negDist) }!
+            return (bestA.overlap, bestA.negDist) > (bestB.overlap, bestB.negDist)
+        }
+
+        var mapping: [Int: Int] = [:]
+        var claimed: Set<Int> = []
+
+        for si in sortedSaved {
+            // Pick best unclaimed current display
+            var bestIndex = -1
+            var bestScore: (overlap: Int, negDist: Int) = (0, Int.min)
+
+            for ci in current.indices where !claimed.contains(ci) {
+                let s = scores[si][ci]
+                if (s.overlap, s.negDist) > (bestScore.overlap, bestScore.negDist) {
+                    bestScore = s
                     bestIndex = ci
-                    bestDistance = 0
-                } else if overlap == 0 && bestOverlap == 0 {
-                    // No overlap found yet — use center distance
-                    let dx = savedFrame.center.x - currentFrame.center.x
-                    let dy = savedFrame.center.y - currentFrame.center.y
-                    let dist = dx * dx + dy * dy  // squared distance (avoids sqrt)
-                    if dist < bestDistance {
-                        bestDistance = dist
-                        bestIndex = ci
-                    }
                 }
             }
 
-            mapping[si] = bestIndex
+            if bestIndex >= 0 {
+                mapping[si] = bestIndex
+                claimed.insert(bestIndex)
+            } else {
+                // All current displays claimed (|saved| > |current|) — allow sharing.
+                // Pick overall best current display for this saved display.
+                var fallbackIndex = 0
+                var fallbackScore: (overlap: Int, negDist: Int) = (scores[si][0].overlap, scores[si][0].negDist)
+                for ci in 1..<current.count {
+                    let s = scores[si][ci]
+                    if (s.overlap, s.negDist) > (fallbackScore.overlap, fallbackScore.negDist) {
+                        fallbackScore = s
+                        fallbackIndex = ci
+                    }
+                }
+                mapping[si] = fallbackIndex
+            }
         }
 
         return mapping

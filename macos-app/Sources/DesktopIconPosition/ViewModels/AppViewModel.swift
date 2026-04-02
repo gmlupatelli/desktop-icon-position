@@ -141,6 +141,10 @@ final class AppViewModel {
 
     /// Save current icon positions with a given profile name.
     func save(name: String) {
+        save(name: name, allowReservedAutoName: false)
+    }
+
+    private func save(name: String, allowReservedAutoName: Bool) {
         do {
             statusMessage = "Saving..."
             let frames = DisplayService.currentFrames()
@@ -154,7 +158,7 @@ final class AppViewModel {
                 settings: settings,
                 icons: icons
             )
-            try ProfileManager.saveProfile(profile, name: name)
+            try ProfileManager.saveProfile(profile, name: name, allowReservedAutoName: allowReservedAutoName)
             refreshProfiles()
             statusMessage = "Saved \(icons.count) icons to \"\(name)\""
         } catch {
@@ -167,7 +171,7 @@ final class AppViewModel {
         let fp = DisplayService.fingerprint()
         let names = DisplayService.displayNames()
         let name = ProfileManager.autoProfileName(fingerprint: fp, displayNames: names)
-        save(name: name)
+        save(name: name, allowReservedAutoName: true)
     }
 
     /// Update an existing profile with current icon positions.
@@ -185,7 +189,11 @@ final class AppViewModel {
                 settings: settings,
                 icons: icons
             )
-            try ProfileManager.saveProfile(profile, name: name)
+            try ProfileManager.saveProfile(
+                profile,
+                name: name,
+                allowReservedAutoName: name.hasPrefix("Auto-")
+            )
             refreshProfiles()
             statusMessage = "Updated \(icons.count) icons in \"\(name)\""
         } catch {
@@ -259,7 +267,7 @@ final class AppViewModel {
     func restoreAuto() {
         do {
             let fp = DisplayService.fingerprint()
-            guard let (name, _) = try ProfileManager.findProfile(forFingerprint: fp) else {
+            guard let (name, _) = try ProfileManager.findAutoProfile(forFingerprint: fp) else {
                 statusMessage = "No profile for current display config"
                 return
             }

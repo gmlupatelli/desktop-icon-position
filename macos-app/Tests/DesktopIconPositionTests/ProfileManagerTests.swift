@@ -110,4 +110,121 @@ struct ProfileManagerTests {
         #expect(profile.icons[0].name == "a|b|c")
         #expect(profile.icons[0].x == 50)
     }
+
+    // MARK: - findAutoProfile
+
+    @Test("findAutoProfile prefers Auto-prefixed profile over alphabetically earlier manual profile")
+    func findAutoProfilePrefersAutoPrefix() throws {
+        let fp = "test-fingerprint-\(UUID().uuidString)"
+        let profile = Profile(
+            fingerprint: fp,
+            displays: [DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)],
+            settings: DesktopSettings(iconSize: 64, textSize: 12),
+            icons: [IconPosition(name: "file.txt", x: 100, y: 200)]
+        )
+
+        // "AAA-manual" sorts before "Auto-..."
+        try ProfileManager.saveProfile(profile, name: "AAA-manual-\(fp)")
+        try ProfileManager.saveProfile(profile, name: "Auto-test_\(fp)", allowReservedAutoName: true)
+        defer {
+            try? ProfileManager.deleteProfile(name: "AAA-manual-\(fp)")
+            try? ProfileManager.deleteProfile(name: "Auto-test_\(fp)")
+        }
+
+        let result = try ProfileManager.findAutoProfile(forFingerprint: fp)
+        #expect(result != nil)
+        #expect(result?.name.hasPrefix("Auto-") == true)
+    }
+
+    @Test("findAutoProfile falls back to manual profile when no Auto-profile exists")
+    func findAutoProfileFallsBackToManual() throws {
+        let fp = "fallback-fingerprint-\(UUID().uuidString)"
+        let profile = Profile(
+            fingerprint: fp,
+            displays: [DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)],
+            settings: DesktopSettings(iconSize: 64, textSize: 12),
+            icons: [IconPosition(name: "file.txt", x: 100, y: 200)]
+        )
+
+        try ProfileManager.saveProfile(profile, name: "Manual-only-\(fp)")
+        defer {
+            try? ProfileManager.deleteProfile(name: "Manual-only-\(fp)")
+        }
+
+        let result = try ProfileManager.findAutoProfile(forFingerprint: fp)
+        #expect(result != nil)
+        #expect(result?.name == "Manual-only-\(fp)")
+    }
+
+    // MARK: - renameProfile blocks Auto-profiles
+
+    @Test("renaming an Auto-profile throws cannotRenameAutoProfile")
+    func renameAutoProfileBlocked() throws {
+        let fp = "rename-block-\(UUID().uuidString)"
+        let profile = Profile(
+            fingerprint: fp,
+            displays: [DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)],
+            settings: DesktopSettings(iconSize: 64, textSize: 12),
+            icons: [IconPosition(name: "file.txt", x: 100, y: 200)]
+        )
+
+        let autoName = "Auto-test_\(fp)"
+        try ProfileManager.saveProfile(profile, name: autoName, allowReservedAutoName: true)
+        defer {
+            try? ProfileManager.deleteProfile(name: autoName)
+            try? ProfileManager.deleteProfile(name: "New-name")
+        }
+
+        #expect(throws: ProfileError.self) {
+            try ProfileManager.renameProfile(from: autoName, to: "New-name")
+        }
+
+        // Verify the auto-profile still exists
+        let loaded = try ProfileManager.loadProfile(name: autoName)
+        #expect(loaded.fingerprint == fp)
+    }
+
+    @Test("manual save rejects Auto-prefixed names")
+    func manualSaveRejectsAutoPrefix() {
+        let fp = "reserved-auto-save-\(UUID().uuidString)"
+        let profile = Profile(
+            fingerprint: fp,
+            displays: [DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)],
+            settings: DesktopSettings(iconSize: 64, textSize: 12),
+            icons: [IconPosition(name: "file.txt", x: 100, y: 200)]
+        )
+
+        #expect(throws: ProfileError.self) {
+            try ProfileManager.saveProfile(profile, name: "Auto-manual-\(fp)")
+        }
+    }
+
+    @Test("renaming a manual profile to an Auto-prefixed name is rejected")
+    func renameManualProfileToAutoPrefixBlocked() throws {
+        let fp = "rename-to-auto-\(UUID().uuidString)"
+        let manualName = "Manual-\(fp)"
+        let autoName = "Auto-test_\(fp)"
+        let profile = Profile(
+            fingerprint: fp,
+            displays: [DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)],
+            settings: DesktopSettings(iconSize: 64, textSize: 12),
+            icons: [IconPosition(name: "file.txt", x: 100, y: 200)]
+        )
+
+        try ProfileManager.saveProfile(profile, name: manualName)
+        defer {
+            try? ProfileManager.deleteProfile(name: manualName)
+            try? ProfileManager.deleteProfile(name: autoName)
+        }
+
+        #expect(throws: ProfileError.self) {
+            try ProfileManager.renameProfile(from: manualName, to: autoName)
+        }
+
+        let loaded = try ProfileManager.loadProfile(name: manualName)
+        #expect(loaded.fingerprint == fp)
+        #expect(throws: ProfileError.self) {
+            try ProfileManager.loadProfile(name: autoName)
+        }
+    }
 }

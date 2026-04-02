@@ -7,6 +7,7 @@ enum ProfileError: LocalizedError {
     case parseError(String)
     case directoryError(String)
     case invalidProfileName(String)
+    case cannotRenameAutoProfile
 
     var errorDescription: String? {
         switch self {
@@ -15,6 +16,7 @@ enum ProfileError: LocalizedError {
         case .parseError(let msg): return "Profile parse error: \(msg)"
         case .directoryError(let msg): return "Profile directory error: \(msg)"
         case .invalidProfileName(let msg): return "Invalid profile name: \(msg)"
+        case .cannotRenameAutoProfile: return "Auto-profiles cannot be renamed"
         }
     }
 }
@@ -132,8 +134,11 @@ final class ProfileManager {
     // MARK: - Save (always JSON)
 
     /// Save a profile as JSON.
-    static func saveProfile(_ profile: Profile, name: String) throws {
+    static func saveProfile(_ profile: Profile, name: String, allowReservedAutoName: Bool = false) throws {
         try validateProfileName(name)
+        guard allowReservedAutoName || !name.hasPrefix("Auto-") else {
+            throw ProfileError.invalidProfileName("names starting with 'Auto-' are reserved for automatic profiles")
+        }
         try ensureDirectory()
         let url = profileDirectory.appendingPathComponent("\(name).json")
         let data = try JSONEncoder.prettyEncoder.encode(profile)
@@ -149,6 +154,25 @@ final class ProfileManager {
             let profile = try loadProfile(name: summary.name)
             return (summary.name, profile)
         }
+        return nil
+    }
+
+    /// Find the best auto-profile matching the given fingerprint.
+    /// Prefers Auto-prefixed profiles; falls back to any match if none exist.
+    static func findAutoProfile(forFingerprint fingerprint: String) throws -> (name: String, profile: Profile)? {
+        let summaries = try listProfiles()
+        let matching = summaries.filter { $0.fingerprint == fingerprint }
+
+        if let auto = matching.first(where: { $0.name.hasPrefix("Auto-") }) {
+            let profile = try loadProfile(name: auto.name)
+            return (auto.name, profile)
+        }
+
+        if let first = matching.first {
+            let profile = try loadProfile(name: first.name)
+            return (first.name, profile)
+        }
+
         return nil
     }
 
@@ -200,6 +224,9 @@ final class ProfileManager {
     /// Rename a profile. Loads from old name, saves as new name (JSON), deletes old.
     /// Throws if the new name already exists to prevent accidental data loss.
     static func renameProfile(from oldName: String, to newName: String) throws {
+        guard !oldName.hasPrefix("Auto-") else {
+            throw ProfileError.cannotRenameAutoProfile
+        }
         try validateProfileName(newName)
         let fm = FileManager.default
         let jsonURL = profileDirectory.appendingPathComponent("\(newName).json")

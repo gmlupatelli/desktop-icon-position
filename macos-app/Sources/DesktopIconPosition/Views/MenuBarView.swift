@@ -81,7 +81,7 @@ struct MenuBarView: View {
         if !viewModel.visibleProfiles.isEmpty {
             Menu("Manage Profiles") {
                 Menu("Rename") {
-                    ForEach(viewModel.visibleProfiles) { profile in
+                    ForEach(viewModel.visibleProfiles.filter { !$0.name.hasPrefix("Auto-") }) { profile in
                         Button(profile.name) {
                             promptAndRename(oldName: profile.name)
                         }

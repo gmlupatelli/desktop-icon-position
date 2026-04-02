@@ -69,9 +69,6 @@ AppViewModel.handleDisplayChange()   AppViewModel.start()
    ├─ permissionGranted?
    │  └─ no → show recovery UI
    │
-   ├─ autoSaveOnDisplayChange?
-   │  → saveAutoIfIconsExist()
-   │
    ├─ Update lastFingerprint
    │
    └─ autoRestoreEnabled?
@@ -80,8 +77,6 @@ AppViewModel.handleDisplayChange()   AppViewModel.start()
                      ├─ FinderService.checkPermission()
                      ├─ permissionGranted?
                      │  └─ no → show recovery UI, skip auto actions
-                     ├─ autoSaveOnLaunch?
-                     │  → saveAutoIfIconsExist()
                      └─ autoRestoreOnLaunch?
                         → restoreAuto()
                 │
@@ -113,8 +108,6 @@ If a Finder operation later fails with a permission-denied AppleScript error, `A
 | `isStableLocation` | `Bool` | Computed | Whether the app is in /Applications (stable for Launch at Login) |
 | `autoRestoreEnabled` | `Bool` | UserDefaults | Auto-restore on display change (default: true) |
 | `autoRestoreOnLaunch` | `Bool` | UserDefaults | Auto-restore on app launch (default: true) |
-| `autoSaveOnLaunch` | `Bool` | UserDefaults | Save auto profile at startup |
-| `autoSaveOnDisplayChange` | `Bool` | UserDefaults | Save outgoing config before restore (default: true) |
 | `autoSaveOnQuit` | `Bool` | UserDefaults | Save auto profile before quitting |
 | `autoSaveOnTimer` | `Bool` | UserDefaults | Periodic save toggle |
 | `autoSaveIntervalMinutes` | `Int` | UserDefaults | Timer interval (5/10/15/30) |

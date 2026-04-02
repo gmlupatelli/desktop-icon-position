@@ -48,12 +48,7 @@ final class AppViewModel {
     var showAutoProfiles: Bool = UserDefaults.standard.bool(forKey: "showAutoProfiles") {
         didSet { UserDefaults.standard.set(showAutoProfiles, forKey: "showAutoProfiles") }
     }
-    var autoSaveOnLaunch: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnLaunch") {
-        didSet { UserDefaults.standard.set(autoSaveOnLaunch, forKey: "autoSaveOnLaunch") }
-    }
-    var autoSaveOnDisplayChange: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnDisplayChange") {
-        didSet { UserDefaults.standard.set(autoSaveOnDisplayChange, forKey: "autoSaveOnDisplayChange") }
-    }
+
     var autoSaveOnQuit: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnQuit") {
         didSet { UserDefaults.standard.set(autoSaveOnQuit, forKey: "autoSaveOnQuit") }
     }
@@ -318,11 +313,6 @@ final class AppViewModel {
             return
         }
 
-        // Save outgoing display config before switching
-        if autoSaveOnDisplayChange {
-            saveAutoIfIconsExist()
-        }
-
         lastFingerprint = newFingerprint
 
         guard autoRestoreEnabled else {
@@ -364,7 +354,7 @@ final class AppViewModel {
         permissionGranted = FinderService.checkPermission()
         if permissionGranted {
             resumeAfterPermissionGranted(runLaunchActions: !wasGranted)
-            if wasGranted || (!autoSaveOnLaunch && !autoRestoreOnLaunch) {
+            if wasGranted || !autoRestoreOnLaunch {
                 statusMessage = "Permission granted"
             }
         } else {
@@ -392,9 +382,6 @@ final class AppViewModel {
 
     private func resumeAfterPermissionGranted(runLaunchActions: Bool) {
         if runLaunchActions {
-            if autoSaveOnLaunch {
-                saveAutoIfIconsExist()
-            }
             if autoRestoreOnLaunch {
                 restoreAuto()
             }

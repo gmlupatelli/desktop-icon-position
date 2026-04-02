@@ -112,8 +112,6 @@ struct MenuBarView: View {
         }
 
         Menu("Auto-Save") {
-            Toggle("Save on Launch", isOn: $viewModel.autoSaveOnLaunch)
-            Toggle("Save on Display Change", isOn: $viewModel.autoSaveOnDisplayChange)
             Toggle("Save on Quit", isOn: $viewModel.autoSaveOnQuit)
             Toggle("Save Periodically", isOn: $viewModel.autoSaveOnTimer)
 

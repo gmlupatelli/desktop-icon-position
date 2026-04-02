@@ -76,7 +76,6 @@ struct DesktopIconPositionApp: App {
     init() {
         // Register defaults before any UserDefaults reads
         UserDefaults.standard.register(defaults: [
-            "autoSaveOnDisplayChange": true,
             "autoRestoreEnabled": true,
             "autoRestoreOnLaunch": true,
         ])

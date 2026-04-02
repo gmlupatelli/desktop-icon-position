@@ -14,6 +14,7 @@ A lightweight menu bar app (no dock icon) that handles everything automatically:
 - **Auto-restores** on app launch and when you connect/disconnect displays — finds the right profile by display fingerprint
 - **Coordinate remapping** — converts icon positions between different display configurations
 - **Anti-drift protection** — disables Snap to Grid, batch-sets positions, and verifies after restore
+- **Permission diagnostics** — detects missing Finder Automation access and guides recovery from the menu
 - **Launch at Login** — starts automatically via macOS Login Items
 
 ### Menu Bar Features
@@ -84,7 +85,14 @@ Or open `macos-app/Package.swift` in Xcode and build/run from there.
 
 ### Permissions
 
-On first run, macOS will prompt for **Accessibility / Automation** permissions to control Finder (System Settings > Privacy & Security).
+On startup, the app runs a lightweight Finder AppleScript check. If macOS has not asked yet, this triggers the **Automation** consent prompt.
+
+If permission is denied:
+- launch auto-save, launch auto-restore, display-change automation, and timer-based auto-save are skipped
+- the menu shows **Open System Settings** and **Re-check Permission** actions
+- once permission is granted in System Settings, **Re-check Permission** resumes the deferred automation behavior without restarting the app
+
+Finder control requires macOS **Automation** permission (System Settings > Privacy & Security). The legacy shell script requires the same permission for Terminal.
 
 ## Profiles
 

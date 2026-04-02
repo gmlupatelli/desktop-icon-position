@@ -64,13 +64,24 @@ Display Change Notification          App Launch
        ▼                                  ▼
 AppViewModel.handleDisplayChange()   AppViewModel.start()
        │                                  │
-       ├─ autoSaveOnDisplayChange?        ├─ autoSaveOnLaunch?
-       │  → saveAutoIfIconsExist()        │  → saveAutoIfIconsExist()
-       │                                  │
-       ├─ Update lastFingerprint          └─ autoRestoreOnLaunch?
-       │                                     → restoreAuto()
-       └─ autoRestoreEnabled?
-          → restoreAuto()
+   ├─ permissionGranted?
+   │  └─ no → show recovery UI
+   │
+   ├─ autoSaveOnDisplayChange?
+   │  → saveAutoIfIconsExist()
+   │
+   ├─ Update lastFingerprint
+   │
+   └─ autoRestoreEnabled?
+      → restoreAuto()
+                     │
+                     ├─ FinderService.checkPermission()
+                     ├─ permissionGranted?
+                     │  └─ no → show recovery UI, skip auto actions
+                     ├─ autoSaveOnLaunch?
+                     │  → saveAutoIfIconsExist()
+                     └─ autoRestoreOnLaunch?
+                        → restoreAuto()
                 │
                 ├─ ProfileManager.findProfile(forFingerprint:)
                 ├─ CoordinateConverter.remap(icons:from:to:)
@@ -80,12 +91,14 @@ AppViewModel.handleDisplayChange()   AppViewModel.start()
                 └─ FinderService.verifyAndReapply() [after 3s delay]
 ```
 
+If a Finder operation later fails with a permission-denied AppleScript error, `AppViewModel` flips `permissionGranted` to `false`, stops the auto-save timer, and exposes the recovery actions in the menu. `recheckPermission()` retries the lightweight permission probe and, when successful, resumes the launch-time automation that was deferred.
+
 ### Services
 
 | Service | Responsibility |
 |---------|---------------|
 | **DisplayService** | `NSScreen` queries, Cocoa→Quartz coordinate conversion, MD5 fingerprint, display names (`localizedName`), display change observer via `didChangeScreenParametersNotification` |
-| **FinderService** | 6 NSAppleScript operations: read positions, read settings, restore settings, disable arrangement, batch set positions (`ignoring application responses`), verify & reapply |
+| **FinderService** | 6 NSAppleScript operations: read positions, read settings, restore settings, disable arrangement, batch set positions (`ignoring application responses`), verify & reapply, plus a lightweight Finder permission probe and permission-error detection |
 | **CoordinateConverter** | `findDisplay(forPoint:in:)`, `matchDisplays(saved:current:)`, and `remap(icons:from:to:)` — smart display-to-display matching with displaced icon parking |
 | **ProfileManager** | Read `.txt` + `.json`, write `.json`, list, load, save, find by fingerprint, delete, rename, auto-profile name generation |
 
@@ -107,6 +120,13 @@ AppViewModel.handleDisplayChange()   AppViewModel.start()
 ### Dialog Implementation
 
 LSUIElement apps (no dock icon) don't receive keyboard events by default. The app uses `NSPanel` (not `NSAlert`) and temporarily switches to `.regular` activation policy to receive keyboard input, then back to `.accessory` after the dialog closes.
+
+### Permission Diagnostics
+
+- `FinderService.checkPermission()` runs a minimal AppleScript against Finder to trigger or confirm Automation permission
+- `permissionGranted` gates startup auto-save, startup auto-restore, display-change automation, and timer-driven auto-save
+- When permission is missing, the menu exposes recovery actions to open System Settings and re-check access
+- `recheckPermission()` resumes deferred launch automation and restarts the timer when permission is granted
 
 ---
 

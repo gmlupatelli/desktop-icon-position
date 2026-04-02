@@ -42,6 +42,18 @@ Auto-Built-in+DELL-U2720Q_e5f6g7h8  (MacBook + external monitor)
 
 The app automatically matches the right profile to your current display setup and restores it.
 
+## License
+
+This project is source-available under the terms in [LICENSE](LICENSE). You may
+use, run, and modify the software for your own private personal purposes only.
+
+You may not redistribute this project or any modified version, and you may not
+use it for commercial, business, organizational, or revenue-generating purposes
+without prior written permission. Commercial licensing inquiries:
+[gmlupatelli@gmail.com](mailto:gmlupatelli@gmail.com).
+
+If you want to submit patches or feedback, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Build & Run
 
 Requires **macOS 14+** and **Xcode** (for Swift 6.0).

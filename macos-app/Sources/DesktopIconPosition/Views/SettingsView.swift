@@ -68,6 +68,26 @@ struct SettingsView: View {
             ) {
                 Toggle("Show auto-generated profiles", isOn: $viewModel.showAutoProfiles)
             }
+
+            Divider()
+
+            settingsSection(
+                title: "License",
+                footer: "Desktop Icon Position is source-available for private personal use only. Redistribution and commercial use require separate written permission."
+            ) {
+                Text("Copyright © 2026 Gustavo Lupatelli")
+                    .font(.subheadline)
+
+                Button("Open Bundled License") {
+                    viewModel.openBundledLicense()
+                }
+                .controlSize(.small)
+
+                Button("Request Commercial License") {
+                    viewModel.requestCommercialLicense()
+                }
+                .controlSize(.small)
+            }
         }
         .padding(20)
         .frame(width: 420, alignment: .leading)

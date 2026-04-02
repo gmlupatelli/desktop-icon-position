@@ -1,21 +1,149 @@
-MIT License
+Desktop Icon Position Personal Use License v1.0
 
-Copyright (c) 2026 Desktop Icon Position Contributors
+Copyright (c) 2026 Gustavo Lupatelli
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This license applies to the source code, binaries, documentation, and related
+materials for Desktop Icon Position (the "Software").
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Limited Personal Use Grant
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This license is granted only to individual natural persons. Subject to the terms
+of this license, you may download, access, copy, compile, run, and modify the
+Software solely for your own private, personal, non-commercial use.
+
+2. Restrictions
+
+Without prior written permission from the copyright holder, you may not:
+
+- distribute, publish, share, sublicense, rent, lease, lend, sell, transfer, or
+	otherwise make the Software or any modified version available to any third
+	party;
+- use the Software or any modified version for any commercial, business,
+	professional, organizational, employment-related, or revenue-generating
+	purpose;
+- provide the Software as a hosted service, managed service, or component of a
+	product or service made available to others;
+- remove, alter, or obscure any copyright, attribution, or license notice.
+
+3. Ownership and Reservation of Rights
+
+The Software is licensed, not sold. Gustavo Lupatelli retains all right, title,
+and interest in and to the Software, and all rights not expressly granted by
+this license are reserved.
+
+4. Commercial Licensing
+
+If you want redistribution rights or a commercial license, contact
+gmlupatelli@gmail.com.
+
+5. Termination and Survival
+
+This license terminates automatically if you violate any term of it. Upon
+termination, you must stop using the Software and destroy all copies in your
+possession or control.
+
+Sections 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, and 15 survive termination of this
+license.
+
+6. No Trademark Rights
+
+This license does not grant any right to use the names, logos, service marks, or
+branding associated with the Software except as necessary for accurate personal
+reference.
+
+7. No Support, Maintenance, or Security Commitments
+
+Gustavo Lupatelli has no obligation to provide any maintenance, support,
+training, updates, upgrades, bug fixes, patches, corrections, or security
+remediation for the Software.
+
+8. Disclaimer of Warranty
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED
+"AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY, REPRESENTATION, CONDITION, OR
+GUARANTEE OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE,
+INCLUDING WITHOUT LIMITATION ANY IMPLIED WARRANTY OR CONDITION OF
+MERCHANTABILITY, MERCHANTABLE QUALITY, FITNESS FOR A PARTICULAR PURPOSE,
+TITLE, QUIET ENJOYMENT, ACCURACY, AVAILABILITY, SECURITY, NON-INFRINGEMENT, OR
+THAT THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE.
+
+YOU ASSUME THE ENTIRE RISK ARISING OUT OF USE OF THE SOFTWARE, INCLUDING THE
+RISK OF DATA LOSS, SYSTEM DAMAGE, AND THE COST OF ANY REQUIRED SERVICING,
+REPAIR, OR CORRECTION. YOU ARE RESPONSIBLE FOR MAINTAINING BACKUPS AND FOR
+VERIFYING THE SOFTWARE'S RESULTS BEFORE RELYING ON THEM.
+
+9. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL GUSTAVO
+LUPATELLI OR ANY CONTRIBUTOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS,
+REVENUE, BUSINESS, GOODWILL, DATA, OR USE, WHETHER IN AN ACTION OF CONTRACT,
+TORT, NEGLIGENCE, STRICT LIABILITY, STATUTE, OR OTHERWISE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGES.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE TOTAL AGGREGATE
+LIABILITY OF GUSTAVO LUPATELLI AND ALL CONTRIBUTORS ARISING OUT OF OR RELATING
+TO THE SOFTWARE OR THIS LICENSE SHALL NOT EXCEED THE GREATER OF CAD $50 OR THE
+TOTAL AMOUNT PAID BY YOU FOR THE SOFTWARE IN THE 12 MONTHS PRECEDING THE EVENT
+GIVING RISE TO THE CLAIM.
+
+10. Indemnity
+
+You agree to defend, indemnify, and hold harmless Gustavo Lupatelli and any
+contributors from and against any claims, liabilities, damages, judgments,
+awards, losses, costs, and expenses, including reasonable legal fees and
+disbursements, arising out of or relating to your breach of this license, your
+use or misuse of the Software, your modifications to the Software, or your
+violation of any applicable law or third-party right.
+
+11. Equitable Relief
+
+You acknowledge that a breach of this license may cause irreparable harm for
+which monetary damages may be an inadequate remedy. Accordingly, Gustavo
+Lupatelli may seek injunctive, equitable, or other non-monetary relief for any
+actual or threatened breach of this license, in addition to any other remedies
+available at law or in equity.
+
+12. Governing Law and Jurisdiction
+
+This license shall be governed by and construed in accordance with the laws of
+the Province of Ontario and the federal laws of Canada applicable therein,
+without giving effect to any choice or conflict of law provision. Subject to
+Section 11, any legal suit, action, or proceeding arising out of or related to
+this license or the Software shall be instituted exclusively in the courts
+located in Ontario, Canada, and you attorn to the personal jurisdiction of those
+courts.
+
+13. Severability
+
+If any provision of this license is held by a court of competent jurisdiction to
+be invalid, illegal, or unenforceable, such provision shall be modified to the
+minimum extent necessary to make it enforceable, and the remaining provisions of
+this license will continue in full force and effect.
+
+14. Entire Agreement and No Waiver
+
+This license constitutes the entire agreement between you and Gustavo Lupatelli
+with respect to the Software and supersedes all prior or contemporaneous
+understandings relating to the Software. No waiver of any provision of this
+license will be effective unless in writing, and no failure or delay in
+exercising any right will operate as a waiver.
+
+15. Contributions and Feedback
+
+Unless explicitly agreed otherwise in a separate written agreement signed by
+Gustavo Lupatelli, any code, patch, suggestion, feedback, issue report, or
+other contribution you submit regarding the Software is provided voluntarily and
+on a non-confidential basis. You represent and warrant that you have all rights
+necessary to submit that contribution.
+
+You grant Gustavo Lupatelli a perpetual, irrevocable, worldwide, transferable,
+sublicensable, royalty-free license to use, reproduce, modify, adapt, create
+derivative works from, distribute, display, perform, commercialize, and
+otherwise exploit that contribution for any purpose without compensation,
+attribution, or further approval.
+
+To the maximum extent permitted by applicable law, you waive and agree not to
+assert any moral rights in that contribution against Gustavo Lupatelli or his
+licensees, successors, and assigns.
+

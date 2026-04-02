@@ -18,6 +18,8 @@
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 Gustavo Lupatelli. Licensed for private personal use only. Commercial licensing: gmlupatelli@gmail.com.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSUIElement</key>

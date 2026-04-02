@@ -355,6 +355,33 @@ final class AppViewModel {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: Bundle.main.bundlePath)])
     }
 
+    /// Open the bundled license text for the installed app.
+    func openBundledLicense() {
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent("LICENSE.txt"),
+              FileManager.default.fileExists(atPath: url.path) else {
+            statusMessage = "Bundled license not found"
+            return
+        }
+
+        if !NSWorkspace.shared.open(url) {
+            statusMessage = "Unable to open bundled license"
+        }
+    }
+
+    /// Start an email draft for commercial licensing inquiries.
+    func requestCommercialLicense() {
+        guard let url = URL(
+            string: "mailto:gmlupatelli@gmail.com?subject=Desktop%20Icon%20Position%20Commercial%20License"
+        ) else {
+            statusMessage = "Commercial licensing contact unavailable"
+            return
+        }
+
+        if !NSWorkspace.shared.open(url) {
+            statusMessage = "Unable to open mail client"
+        }
+    }
+
     /// Open (or bring to front) the Settings window.
     func openSettings() {
         if let window = settingsWindow {

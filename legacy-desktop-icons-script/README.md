@@ -2,6 +2,16 @@
 
 > **Note:** This shell script is the original implementation of the icon position manager. The recommended tool is now the [macOS menu bar app](../macos-app/). The script remains functional and is useful for automation, scripting, or environments where the app can't be installed.
 
+## License
+
+This script is covered by the repository's [personal-use license](../LICENSE). You
+may use and modify it for your own private personal purposes only.
+
+You may not redistribute this script or any modified version, and you may not
+use it for commercial, business, organizational, or revenue-generating purposes
+without prior written permission. Commercial licensing inquiries:
+[gmlupatelli@gmail.com](mailto:gmlupatelli@gmail.com).
+
 ## Quick Start
 
 ```bash

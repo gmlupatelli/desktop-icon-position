@@ -67,6 +67,11 @@ if [[ -f "$ICNS_PATH" ]]; then
     cp "$ICNS_PATH" "${APP_BUNDLE}/Contents/Resources/"
 fi
 
+# Copy license text so installed app users can view the bundled terms
+if [[ -f "${REPO_ROOT}/LICENSE" ]]; then
+    cp "${REPO_ROOT}/LICENSE" "${APP_BUNDLE}/Contents/Resources/LICENSE.txt"
+fi
+
 # Create PkgInfo
 echo -n "APPL????" > "${APP_BUNDLE}/Contents/PkgInfo"
 

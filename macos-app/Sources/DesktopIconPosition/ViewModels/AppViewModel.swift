@@ -21,6 +21,11 @@ final class AppViewModel {
             guard !isUpdatingLaunchAtLogin else { return }
             isUpdatingLaunchAtLogin = true
             defer { isUpdatingLaunchAtLogin = false }
+            if launchAtLogin && !isStableLocation {
+                statusMessage = "Move app to /Applications for reliable Launch at Login"
+                launchAtLogin = false
+                return
+            }
             do {
                 if launchAtLogin {
                     try SMAppService.mainApp.register()
@@ -74,6 +79,15 @@ final class AppViewModel {
         return profiles.filter { !$0.name.hasPrefix("Auto-") }
     }
 
+    /// Whether the app is running from a stable location suitable for Launch at Login.
+    var isStableLocation: Bool {
+        let path = Bundle.main.bundlePath
+        // Stable: /Applications or ~/Applications
+        if path.hasPrefix("/Applications/") { return true }
+        if path.hasPrefix(NSHomeDirectory() + "/Applications/") { return true }
+        return false
+    }
+
     // MARK: - Private State
 
     private var displayObserver: NSObjectProtocol?
@@ -83,10 +97,17 @@ final class AppViewModel {
     // MARK: - Lifecycle
 
     func start() {
-        // Enable launch at login by default on first run
+        if launchAtLogin && !isStableLocation {
+            statusMessage = "Launch at Login disabled — move app to /Applications for reliable startup"
+            launchAtLogin = false
+        }
+
+        // Enable launch at login by default on first run (only from a stable location)
         if !UserDefaults.standard.bool(forKey: "hasSetupLaunchAtLogin") {
             UserDefaults.standard.set(true, forKey: "hasSetupLaunchAtLogin")
-            launchAtLogin = true
+            if isStableLocation {
+                launchAtLogin = true
+            }
         }
 
         refreshProfiles()
@@ -328,6 +349,11 @@ final class AppViewModel {
     private func stopAutoSaveTimer() {
         autoSaveTimer?.invalidate()
         autoSaveTimer = nil
+    }
+
+    /// Reveal the app in Finder so the user can drag it to /Applications.
+    func revealAppInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: Bundle.main.bundlePath)])
     }
 
     // MARK: - Permission Helpers

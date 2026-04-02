@@ -99,7 +99,17 @@ struct MenuBarView: View {
 
         Divider()
 
-        Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
+        if viewModel.isStableLocation {
+            Toggle("Launch at Login", isOn: $viewModel.launchAtLogin)
+        } else {
+            Menu("Launch at Login \u{26A0}") {
+                Text("Move app to /Applications")
+                    .foregroundStyle(.secondary)
+                Button("Reveal in Finder") {
+                    viewModel.revealAppInFinder()
+                }
+            }
+        }
 
         Menu("Auto-Save") {
             Toggle("Save on Launch", isOn: $viewModel.autoSaveOnLaunch)

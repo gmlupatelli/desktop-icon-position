@@ -15,7 +15,7 @@ A lightweight menu bar app (no dock icon) that handles everything automatically:
 - **Coordinate remapping** — converts icon positions between different display configurations
 - **Anti-drift protection** — disables Snap to Grid, batch-sets positions, and verifies after restore
 - **Permission diagnostics** — detects missing Finder Automation access and guides recovery from the menu
-- **Launch at Login** — starts automatically via macOS Login Items
+- **Launch at Login** — starts automatically via macOS Login Items; disables itself when the app is launched from an unstable path and prompts to move to /Applications
 
 ### Menu Bar Features
 
@@ -93,6 +93,8 @@ If permission is denied:
 - once permission is granted in System Settings, **Re-check Permission** resumes the deferred automation behavior without restarting the app
 
 Finder control requires macOS **Automation** permission (System Settings > Privacy & Security). The legacy shell script requires the same permission for Terminal.
+
+Launch at Login is only reliable when the app lives in `/Applications` or `~/Applications`. If the app is later launched from an unstable path such as a DMG mount or Downloads, the app turns Launch at Login back off and shows guidance to move it.
 
 ## Profiles
 

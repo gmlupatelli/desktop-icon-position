@@ -108,6 +108,7 @@ If a Finder operation later fails with a permission-denied AppleScript error, `A
 |----------|------|-------------|-------------|
 | `launchAtLogin` | `Bool` | SMAppService | macOS Login Items |
 | `permissionGranted` | `Bool` | In-memory | Whether Automation permission to control Finder is granted |
+| `isStableLocation` | `Bool` | Computed | Whether the app is in /Applications (stable for Launch at Login) |
 | `autoRestoreEnabled` | `Bool` | UserDefaults | Auto-restore on display change (default: true) |
 | `autoRestoreOnLaunch` | `Bool` | UserDefaults | Auto-restore on app launch (default: true) |
 | `autoSaveOnLaunch` | `Bool` | UserDefaults | Save auto profile at startup |
@@ -127,6 +128,12 @@ LSUIElement apps (no dock icon) don't receive keyboard events by default. The ap
 - `permissionGranted` gates startup auto-save, startup auto-restore, display-change automation, and timer-driven auto-save
 - When permission is missing, the menu exposes recovery actions to open System Settings and re-check access
 - `recheckPermission()` resumes deferred launch automation and restarts the timer when permission is granted
+
+### Launch At Login Stability
+
+- `isStableLocation` accepts `/Applications` and `~/Applications` as stable install locations
+- When the app starts from an unstable path and Launch at Login is still enabled, `AppViewModel.start()` disables it immediately to avoid a broken login item
+- The menu replaces the Launch at Login toggle with guidance to move the app when location is unstable
 
 ---
 
@@ -273,7 +280,7 @@ Code signing and notarization are opt-in via environment variables. Without them
 ## Known Limitations
 
 - First run requires granting Accessibility/Automation permissions to the app (or Terminal for the script)
-- `SMAppService` Launch at Login requires the app to be at a stable filesystem location
+- `SMAppService` Launch at Login requires the app to be at a stable filesystem location — the app detects unstable paths, disables stale login-item registrations, and gates the toggle with a warning
 - Filenames containing `|` would break the script's pipe-delimited format (extremely rare on macOS)
 - Auto-profile fingerprint matching returns the first match if multiple profiles share a fingerprint
 - The script cannot read `.json` profiles saved by the app

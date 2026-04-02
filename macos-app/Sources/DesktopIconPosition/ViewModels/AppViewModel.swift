@@ -357,14 +357,15 @@ final class AppViewModel {
 
     /// Open (or bring to front) the Settings window.
     func openSettings() {
-        if let window = settingsWindow, window.isVisible {
+        if let window = settingsWindow {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
 
         let hostingView = NSHostingView(rootView: SettingsView(viewModel: self))
-        hostingView.frame = NSRect(x: 0, y: 0, width: 320, height: 360)
+        let settingsWindowSize = hostingView.fittingSize
+        hostingView.frame = NSRect(origin: .zero, size: settingsWindowSize)
 
         let window = NSWindow(
             contentRect: hostingView.frame,
@@ -376,7 +377,9 @@ final class AppViewModel {
         window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
-        window.level = .floating
+        window.setContentSize(settingsWindowSize)
+        window.contentMinSize = settingsWindowSize
+        window.tabbingMode = .disallowed
 
         settingsWindow = window
         window.makeKeyAndOrderFront(nil)

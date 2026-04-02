@@ -88,6 +88,7 @@ final class AppViewModel {
     private var displayObserver: NSObjectProtocol?
     private var lastFingerprint: String = ""
     private var autoSaveTimer: Timer?
+    private let automationCoordinator = AutomationCoordinator()
 
     // MARK: - Lifecycle
 
@@ -306,22 +307,20 @@ final class AppViewModel {
 
     private func handleDisplayChange() {
         let newFingerprint = DisplayService.fingerprint()
-        guard newFingerprint != lastFingerprint else { return }
-
-        guard permissionGranted else {
-            statusMessage = "Permission required \u{2014} open System Settings to grant access"
+        guard let plan = automationCoordinator.planDisplayChange(
+            previousFingerprint: lastFingerprint,
+            newFingerprint: newFingerprint,
+            permissionGranted: permissionGranted,
+            autoRestoreEnabled: autoRestoreEnabled
+        ) else {
             return
         }
 
-        lastFingerprint = newFingerprint
-
-        guard autoRestoreEnabled else {
-            statusMessage = "Display changed (auto-restore off)"
-            return
+        if let nextFingerprint = plan.nextFingerprint {
+            lastFingerprint = nextFingerprint
         }
 
-        statusMessage = "Display changed — restoring..."
-        restoreAuto()
+        applyAutomationActions(plan.actions)
     }
 
     // MARK: - Auto-Save Timer
@@ -352,15 +351,13 @@ final class AppViewModel {
     func recheckPermission() {
         let wasGranted = permissionGranted
         permissionGranted = FinderService.checkPermission()
-        if permissionGranted {
-            resumeAfterPermissionGranted(runLaunchActions: !wasGranted)
-            if wasGranted || !autoRestoreOnLaunch {
-                statusMessage = "Permission granted"
-            }
-        } else {
-            statusMessage = "Permission required \u{2014} open System Settings to grant access"
-            stopAutoSaveTimer()
-        }
+        let actions = automationCoordinator.planPermissionRecheck(
+            wasGranted: wasGranted,
+            isGranted: permissionGranted,
+            autoRestoreOnLaunch: autoRestoreOnLaunch,
+            autoSaveOnTimer: autoSaveOnTimer
+        )
+        applyAutomationActions(actions)
     }
 
     /// Open System Settings to the Automation privacy pane.
@@ -381,16 +378,26 @@ final class AppViewModel {
     }
 
     private func resumeAfterPermissionGranted(runLaunchActions: Bool) {
-        if runLaunchActions {
-            if autoRestoreOnLaunch {
-                restoreAuto()
-            }
-        }
+        let actions = automationCoordinator.planResumeAfterPermissionGranted(
+            runLaunchActions: runLaunchActions,
+            autoRestoreOnLaunch: autoRestoreOnLaunch,
+            autoSaveOnTimer: autoSaveOnTimer
+        )
+        applyAutomationActions(actions)
+    }
 
-        if autoSaveOnTimer {
-            startAutoSaveTimer()
-        } else {
-            stopAutoSaveTimer()
+    private func applyAutomationActions(_ actions: [AutomationCoordinator.Action]) {
+        for action in actions {
+            switch action {
+            case .setStatusMessage(let message):
+                statusMessage = message
+            case .restoreAuto:
+                restoreAuto()
+            case .startAutoSaveTimer:
+                startAutoSaveTimer()
+            case .stopAutoSaveTimer:
+                stopAutoSaveTimer()
+            }
         }
     }
 }

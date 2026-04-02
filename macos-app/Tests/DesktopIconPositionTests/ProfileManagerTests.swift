@@ -44,4 +44,70 @@ struct ProfileManagerTests {
             displayNames: ["Built-in Retina Display", "DELL U2720Q"]
         )
         #expect(name == "Auto-Built-in+DELL-U2720Q_56645984")
-    }}
+    }
+
+    // MARK: - validateProfileName
+
+    @Test("valid profile names are accepted")
+    func validateValidNames() throws {
+        try ProfileManager.validateProfileName("my-profile")
+        try ProfileManager.validateProfileName("Profile 1")
+        try ProfileManager.validateProfileName("Auto-Built-in_56645984")
+    }
+
+    @Test("empty name is rejected")
+    func validateEmptyName() {
+        #expect(throws: ProfileError.self) {
+            try ProfileManager.validateProfileName("")
+        }
+    }
+
+    @Test("name starting with dot is rejected")
+    func validateDotPrefix() {
+        #expect(throws: ProfileError.self) {
+            try ProfileManager.validateProfileName(".hidden")
+        }
+    }
+
+    @Test("name containing slash is rejected")
+    func validateSlash() {
+        #expect(throws: ProfileError.self) {
+            try ProfileManager.validateProfileName("../../etc/evil")
+        }
+    }
+
+    @Test("name containing dot-dot is rejected")
+    func validateDotDot() {
+        #expect(throws: ProfileError.self) {
+            try ProfileManager.validateProfileName("foo..bar")
+        }
+    }
+
+    // MARK: - parsePipeDelimitedContent
+
+    @Test("pipe-delimited icon with pipe in name parsed correctly")
+    func parsePipeInName() {
+        let content = """
+        #FINGERPRINT|abc123
+        #SETTINGS|64|12
+        file|name.txt|100|200
+        normal.txt|300|400
+        """
+        let profile = ProfileManager.parsePipeDelimitedContent(content)
+        #expect(profile.icons.count == 2)
+        #expect(profile.icons[0].name == "file|name.txt")
+        #expect(profile.icons[0].x == 100)
+        #expect(profile.icons[0].y == 200)
+        #expect(profile.icons[1].name == "normal.txt")
+        #expect(profile.fingerprint == "abc123")
+    }
+
+    @Test("pipe-delimited with multiple pipes in name")
+    func parseMultiplePipesInName() {
+        let content = "a|b|c|50|60\n"
+        let profile = ProfileManager.parsePipeDelimitedContent(content)
+        #expect(profile.icons.count == 1)
+        #expect(profile.icons[0].name == "a|b|c")
+        #expect(profile.icons[0].x == 50)
+    }
+}

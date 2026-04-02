@@ -3,14 +3,18 @@ import Foundation
 /// Error types for profile operations.
 enum ProfileError: LocalizedError {
     case profileNotFound(String)
+    case profileAlreadyExists(String)
     case parseError(String)
     case directoryError(String)
+    case invalidProfileName(String)
 
     var errorDescription: String? {
         switch self {
         case .profileNotFound(let name): return "Profile \"\(name)\" not found"
+        case .profileAlreadyExists(let name): return "Profile \"\(name)\" already exists"
         case .parseError(let msg): return "Profile parse error: \(msg)"
         case .directoryError(let msg): return "Profile directory error: \(msg)"
+        case .invalidProfileName(let msg): return "Invalid profile name: \(msg)"
         }
     }
 }
@@ -32,6 +36,22 @@ final class ProfileManager {
             at: profileDirectory,
             withIntermediateDirectories: true
         )
+    }
+
+    /// Validate that a profile name is safe for use as a filename.
+    static func validateProfileName(_ name: String) throws {
+        guard !name.isEmpty else {
+            throw ProfileError.invalidProfileName("must not be empty")
+        }
+        guard !name.hasPrefix(".") else {
+            throw ProfileError.invalidProfileName("must not start with '.'")
+        }
+        guard !name.contains("/"), !name.contains("\0") else {
+            throw ProfileError.invalidProfileName("contains invalid characters")
+        }
+        guard !name.contains("..") else {
+            throw ProfileError.invalidProfileName("must not contain '..'")
+        }
     }
 
     // MARK: - List
@@ -95,6 +115,7 @@ final class ProfileManager {
 
     /// Load a profile by name. Tries .json first, then .txt.
     static func loadProfile(name: String) throws -> Profile {
+        try validateProfileName(name)
         let jsonURL = profileDirectory.appendingPathComponent("\(name).json")
         if FileManager.default.fileExists(atPath: jsonURL.path) {
             return try loadJSON(from: jsonURL)
@@ -112,6 +133,7 @@ final class ProfileManager {
 
     /// Save a profile as JSON.
     static func saveProfile(_ profile: Profile, name: String) throws {
+        try validateProfileName(name)
         try ensureDirectory()
         let url = profileDirectory.appendingPathComponent("\(name).json")
         let data = try JSONEncoder.prettyEncoder.encode(profile)
@@ -155,6 +177,7 @@ final class ProfileManager {
 
     /// Delete a profile by name. Removes both .json and .txt versions if they exist.
     static func deleteProfile(name: String) throws {
+        try validateProfileName(name)
         let fm = FileManager.default
         let jsonURL = profileDirectory.appendingPathComponent("\(name).json")
         let txtURL = profileDirectory.appendingPathComponent("\(name).txt")
@@ -175,7 +198,15 @@ final class ProfileManager {
     // MARK: - Rename
 
     /// Rename a profile. Loads from old name, saves as new name (JSON), deletes old.
+    /// Throws if the new name already exists to prevent accidental data loss.
     static func renameProfile(from oldName: String, to newName: String) throws {
+        try validateProfileName(newName)
+        let fm = FileManager.default
+        let jsonURL = profileDirectory.appendingPathComponent("\(newName).json")
+        let txtURL = profileDirectory.appendingPathComponent("\(newName).txt")
+        if fm.fileExists(atPath: jsonURL.path) || fm.fileExists(atPath: txtURL.path) {
+            throw ProfileError.profileAlreadyExists(newName)
+        }
         let profile = try loadProfile(name: oldName)
         try saveProfile(profile, name: newName)
         try deleteProfile(name: oldName)
@@ -183,9 +214,14 @@ final class ProfileManager {
 
     // MARK: - Parse Pipe-Delimited (.txt)
 
-    /// Parse a shell-script-format profile.
+    /// Parse a shell-script-format profile from a URL.
     private static func parsePipeDelimited(from url: URL) throws -> Profile {
         let content = try String(contentsOf: url, encoding: .utf8)
+        return parsePipeDelimitedContent(content)
+    }
+
+    /// Parse pipe-delimited profile content. Internal for testing.
+    static func parsePipeDelimitedContent(_ content: String) -> Profile {
         let lines = content.components(separatedBy: .newlines)
 
         var fingerprint = ""
@@ -214,12 +250,19 @@ final class ProfileManager {
             } else if trimmed.hasPrefix("#") {
                 continue  // skip unknown metadata
             } else {
-                // Icon line: name|x|y
-                let parts = trimmed.split(separator: "|", maxSplits: 2)
-                if parts.count == 3,
-                   let x = Int(parts[1].trimmingCharacters(in: .whitespaces)),
-                   let y = Int(parts[2].trimmingCharacters(in: .whitespaces)) {
-                    icons.append(IconPosition(name: String(parts[0]), x: x, y: y))
+                // Icon line: name|x|y — parse from right to handle | in names
+                guard let lastPipe = trimmed.lastIndex(of: "|") else { continue }
+                let beforeLast = trimmed[trimmed.startIndex..<lastPipe]
+                guard let secondPipe = beforeLast.lastIndex(of: "|") else { continue }
+
+                let name = String(trimmed[trimmed.startIndex..<secondPipe])
+                let xStr = trimmed[trimmed.index(after: secondPipe)..<lastPipe]
+                let yStr = trimmed[trimmed.index(after: lastPipe)...]
+
+                if let x = Int(xStr.trimmingCharacters(in: .whitespaces)),
+                   let y = Int(yStr.trimmingCharacters(in: .whitespaces)),
+                   !name.isEmpty {
+                    icons.append(IconPosition(name: name, x: x, y: y))
                 }
             }
         }

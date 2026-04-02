@@ -21,13 +21,32 @@ final class FinderService {
 
     /// Read all desktop icon positions. Returns name + Quartz coordinates.
     static func readIconPositions() throws -> [IconPosition] {
+        // Escape backslash, linefeed, and return in icon names so the
+        // pipe-delimited output stays one-line-per-icon.
         let source = """
         tell application "Finder"
             set allItems to every item of desktop
             set posData to ""
+            set saveTID to AppleScript's text item delimiters
             repeat with anItem in allItems
                 try
                     set itemName to name of anItem as text
+                    -- Escape \\ -> \\\\
+                    set AppleScript's text item delimiters to (ASCII character 92)
+                    set tList to text items of itemName
+                    set AppleScript's text item delimiters to (ASCII character 92) & (ASCII character 92)
+                    set itemName to tList as text
+                    -- Escape LF -> \\n
+                    set AppleScript's text item delimiters to (ASCII character 10)
+                    set tList to text items of itemName
+                    set AppleScript's text item delimiters to (ASCII character 92) & "n"
+                    set itemName to tList as text
+                    -- Escape CR -> \\r
+                    set AppleScript's text item delimiters to (ASCII character 13)
+                    set tList to text items of itemName
+                    set AppleScript's text item delimiters to (ASCII character 92) & "r"
+                    set itemName to tList as text
+                    set AppleScript's text item delimiters to saveTID
                     set itemPos to desktop position of anItem
                     set posX to item 1 of itemPos as integer
                     set posY to item 2 of itemPos as integer
@@ -92,12 +111,10 @@ final class FinderService {
         guard !icons.isEmpty else { return }
         var setStatements = ""
         for icon in icons {
-            let escaped = icon.name
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
+            let nameExpr = appleScriptStringLiteral(icon.name)
             setStatements += """
                         try
-                            set desktop position of item "\(escaped)" of desktop to {\(icon.x), \(icon.y)}
+                            set desktop position of item (\(nameExpr)) of desktop to {\(icon.x), \(icon.y)}
                         end try
             
             """
@@ -165,15 +182,86 @@ final class FinderService {
         return result.stringValue ?? ""
     }
 
-    private static func parseIconPositions(_ output: String) -> [IconPosition] {
+    /// Parse `name|x|y` lines using right-to-left splitting so `|` in
+    /// filenames does not corrupt the result.
+    static func parseIconPositions(_ output: String) -> [IconPosition] {
         output.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
-            let parts = line.split(separator: "|", maxSplits: 2)
-            guard parts.count == 3,
-                  let x = Int(parts[1].trimmingCharacters(in: .whitespaces)),
-                  let y = Int(parts[2].trimmingCharacters(in: .whitespaces)) else {
+            let str = String(line)
+            guard let lastPipe = str.lastIndex(of: "|") else { return nil }
+            let beforeLast = str[str.startIndex..<lastPipe]
+            guard let secondPipe = beforeLast.lastIndex(of: "|") else { return nil }
+
+            let rawName = String(str[str.startIndex..<secondPipe])
+            let xStr = str[str.index(after: secondPipe)..<lastPipe]
+            let yStr = str[str.index(after: lastPipe)...]
+
+            guard let x = Int(xStr.trimmingCharacters(in: .whitespaces)),
+                  let y = Int(yStr.trimmingCharacters(in: .whitespaces)),
+                  !rawName.isEmpty else {
                 return nil
             }
-            return IconPosition(name: String(parts[0]), x: x, y: y)
+            return IconPosition(name: unescapeIconName(rawName), x: x, y: y)
         }
+    }
+
+    /// Reverse the backslash escaping applied by the read AppleScript.
+    static func unescapeIconName(_ name: String) -> String {
+        var result = ""
+        var i = name.startIndex
+        while i < name.endIndex {
+            if name[i] == "\\" {
+                let next = name.index(after: i)
+                if next < name.endIndex {
+                    switch name[next] {
+                    case "n": result.append("\n")
+                    case "r": result.append("\r")
+                    case "\\": result.append("\\")
+                    default:
+                        result.append("\\")
+                        result.append(name[next])
+                    }
+                    i = name.index(i, offsetBy: 2)
+                } else {
+                    result.append("\\")
+                    i = name.index(after: i)
+                }
+            } else {
+                result.append(name[i])
+                i = name.index(after: i)
+            }
+        }
+        return result
+    }
+
+    /// Build an AppleScript string expression, handling backslashes, quotes,
+    /// and newlines (which cannot appear inside an AppleScript string literal).
+    private static func appleScriptStringLiteral(_ str: String) -> String {
+        let escaped = str
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        if !escaped.contains("\n") && !escaped.contains("\r") {
+            return "\"\(escaped)\""
+        }
+
+        // Names with newlines must use concatenation with ASCII character refs.
+        var parts: [String] = []
+        var current = ""
+        for char in escaped {
+            switch char {
+            case "\n":
+                if !current.isEmpty { parts.append("\"\(current)\"") }
+                parts.append("(ASCII character 10)")
+                current = ""
+            case "\r":
+                if !current.isEmpty { parts.append("\"\(current)\"") }
+                parts.append("(ASCII character 13)")
+                current = ""
+            default:
+                current.append(char)
+            }
+        }
+        if !current.isEmpty { parts.append("\"\(current)\"") }
+        return parts.joined(separator: " & ")
     }
 }

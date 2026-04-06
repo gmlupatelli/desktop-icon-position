@@ -179,6 +179,22 @@ final class FinderService {
         try executeAppleScript(source, label: "AS: disableArrangement")
     }
 
+    /// Combined restore settings + disable arrangement in a single AppleScript call.
+    /// Saves one process launch (~20ms) compared to calling them separately.
+    static func prepareForRestore(_ settings: DesktopSettings) throws {
+        let source = """
+        tell application "Finder"
+            set opts to icon view options of desktop's window
+            set icon size of opts to \(settings.iconSize)
+            set text size of opts to \(settings.textSize)
+            if arrangement of opts is not not arranged then
+                set arrangement of opts to not arranged
+            end if
+        end tell
+        """
+        try executeAppleScript(source, label: "AS: prepareForRestore")
+    }
+
     /// Set all icon positions in a single batch, wrapped in `ignoring application responses`
     /// to prevent Finder from rearranging icons mid-restore.
     static func batchSetPositions(_ icons: [IconPosition]) throws {

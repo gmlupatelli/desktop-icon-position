@@ -206,11 +206,25 @@ final class AppViewModel {
     }
 
     /// Save auto profile only if Finder returns at least 1 icon.
+    /// Reads icons once and builds the profile directly, avoiding the double-read
+    /// that would happen if we called saveAuto() → save() → readIconPositions() again.
     private func saveAutoIfIconsExist() {
         do {
             let icons = try FinderService.readIconPositions()
             guard !icons.isEmpty else { return }
-            saveAuto()
+            let settings = try FinderService.readSettings()
+            let frames = DisplayService.currentFrames()
+            let fingerprint = DisplayService.fingerprint()
+            let names = DisplayService.displayNames()
+            let name = ProfileManager.autoProfileName(fingerprint: fingerprint, displayNames: names)
+            let profile = Profile(
+                fingerprint: fingerprint,
+                displays: frames,
+                settings: settings,
+                icons: icons
+            )
+            try ProfileManager.saveProfile(profile, name: name, allowReservedAutoName: true)
+            refreshProfiles()
         } catch {
             if FinderService.isPermissionError(error) {
                 handleFinderError(error, action: "Auto-save")
@@ -241,11 +255,8 @@ final class AppViewModel {
                 }
             }
 
-            // 1. Restore settings first (prevents Finder layout recalculation)
-            try TimingLog.measure("restore: restoreSettings") { try FinderService.restoreSettings(profile.settings) }
-
-            // 2. Disable auto-arrange (prevents Snap to Grid drift)
-            try TimingLog.measure("restore: disableArrangement") { try FinderService.disableArrangement() }
+            // 1. Restore settings + disable auto-arrange in one call
+            try TimingLog.measure("restore: prepareForRestore") { try FinderService.prepareForRestore(profile.settings) }
 
             // 3. Batch set all positions
             try TimingLog.measure("restore: batchSetPositions") { try FinderService.batchSetPositions(icons) }

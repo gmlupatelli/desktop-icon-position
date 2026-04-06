@@ -67,11 +67,8 @@ enum TimingBenchmarkRunner {
                 }
             }
 
-            try TimingLog.measure("restore: restoreSettings") {
-                try FinderService.restoreSettings(profile.settings)
-            }
-            try TimingLog.measure("restore: disableArrangement") {
-                try FinderService.disableArrangement()
+            try TimingLog.measure("restore: prepareForRestore") {
+                try FinderService.prepareForRestore(profile.settings)
             }
             try TimingLog.measure("restore: batchSetPositions") {
                 try FinderService.batchSetPositions(icons)

@@ -93,13 +93,13 @@ final class AppViewModel {
         return false
     }
 
-    // MARK: - Private State
+    // MARK: - Internal State (shared with extensions)
 
     private var displayObserver: NSObjectProtocol?
     private var lastFingerprint: String = ""
-    private var autoSaveTimer: Timer?
-    private let automationCoordinator = AutomationCoordinator()
-    private var settingsWindow: NSWindow?
+    var autoSaveTimer: Timer?
+    let automationCoordinator = AutomationCoordinator()
+    var settingsWindow: NSWindow?
 
     // MARK: - Lifecycle
 
@@ -170,7 +170,11 @@ final class AppViewModel {
                 settings: settings,
                 icons: icons
             )
-            try TimingLog.measure("save: writeProfile") { try ProfileManager.saveProfile(profile, name: name, allowReservedAutoName: allowReservedAutoName) }
+            try TimingLog.measure("save: writeProfile") {
+                try ProfileManager.saveProfile(
+                    profile, name: name, allowReservedAutoName: allowReservedAutoName
+                )
+            }
             refreshProfiles()
             TimingLog.summary("SAVE TOTAL", startTime: saveStart)
             statusMessage = "Saved \(icons.count) icons to \"\(name)\""
@@ -276,10 +280,14 @@ final class AppViewModel {
             }
 
             // 1. Restore settings + disable auto-arrange in one call
-            try TimingLog.measure("restore: prepareForRestore") { try FinderService.prepareForRestore(profile.settings) }
+            try TimingLog.measure("restore: prepareForRestore") {
+                try FinderService.prepareForRestore(profile.settings)
+            }
 
             // 3. Batch set all positions
-            try TimingLog.measure("restore: batchSetPositions") { try FinderService.batchSetPositions(icons) }
+            try TimingLog.measure("restore: batchSetPositions") {
+                try FinderService.batchSetPositions(icons)
+            }
 
             TimingLog.summary("RESTORE (before verify)", startTime: restoreStart)
 
@@ -299,7 +307,8 @@ final class AppViewModel {
                         }
                         totalCorrected += corrected
                         if corrected == 0 {
-                            TimingLog.summary("RESTORE TOTAL (verify pass \(attempt + 1), no drift)", startTime: restoreStart)
+                            let msg = "RESTORE TOTAL (verify pass \(attempt + 1), no drift)"
+                            TimingLog.summary(msg, startTime: restoreStart)
                             self?.statusMessage = totalCorrected > 0
                                 ? "Restored \(expected.count) icons, corrected \(totalCorrected)"
                                 : "Restored \(expected.count) icons"
@@ -403,137 +412,21 @@ final class AppViewModel {
 
     // MARK: - Auto-Save Timer
 
-    private func startAutoSaveTimer() {
+    func startAutoSaveTimer() {
         stopAutoSaveTimer()
         let interval = TimeInterval(autoSaveIntervalMinutes * 60)
-        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        autoSaveTimer = Timer.scheduledTimer(
+            withTimeInterval: interval,
+            repeats: true
+        ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.saveAutoIfIconsExist()
             }
         }
     }
 
-    private func stopAutoSaveTimer() {
+    func stopAutoSaveTimer() {
         autoSaveTimer?.invalidate()
         autoSaveTimer = nil
-    }
-
-    /// Reveal the app in Finder so the user can drag it to /Applications.
-    func revealAppInFinder() {
-        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: Bundle.main.bundlePath)])
-    }
-
-    /// Open the bundled license text for the installed app.
-    func openBundledLicense() {
-        guard let url = Bundle.main.resourceURL?.appendingPathComponent("LICENSE.txt"),
-              FileManager.default.fileExists(atPath: url.path) else {
-            statusMessage = "Bundled license not found"
-            return
-        }
-
-        if !NSWorkspace.shared.open(url) {
-            statusMessage = "Unable to open bundled license"
-        }
-    }
-
-    /// Start an email draft for commercial licensing inquiries.
-    func requestCommercialLicense() {
-        guard let url = URL(
-            string: "mailto:gmlupatelli@gmail.com?subject=Desktop%20Icon%20Position%20Commercial%20License"
-        ) else {
-            statusMessage = "Commercial licensing contact unavailable"
-            return
-        }
-
-        if !NSWorkspace.shared.open(url) {
-            statusMessage = "Unable to open mail client"
-        }
-    }
-
-    /// Open (or bring to front) the Settings window.
-    func openSettings() {
-        if let window = settingsWindow {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-
-        let hostingView = NSHostingView(rootView: SettingsView(viewModel: self))
-        let settingsWindowSize = hostingView.fittingSize
-        hostingView.frame = NSRect(origin: .zero, size: settingsWindowSize)
-
-        let window = NSWindow(
-            contentRect: hostingView.frame,
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Desktop Icon Position Settings"
-        window.contentView = hostingView
-        window.center()
-        window.isReleasedWhenClosed = false
-        window.setContentSize(settingsWindowSize)
-        window.contentMinSize = settingsWindowSize
-        window.tabbingMode = .disallowed
-
-        settingsWindow = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    // MARK: - Permission Helpers
-
-    /// Re-check Automation permission (e.g. after user grants access in System Settings).
-    func recheckPermission() {
-        let wasGranted = permissionGranted
-        permissionGranted = FinderService.checkPermission()
-        let actions = automationCoordinator.planPermissionRecheck(
-            wasGranted: wasGranted,
-            isGranted: permissionGranted,
-            autoRestoreOnLaunch: autoRestoreOnLaunch,
-            autoSaveOnTimer: autoSaveOnTimer
-        )
-        applyAutomationActions(actions)
-    }
-
-    /// Open System Settings to the Automation privacy pane.
-    func openAutomationSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
-    private func handleFinderError(_ error: Error, action: String) {
-        if FinderService.isPermissionError(error) {
-            permissionGranted = false
-            statusMessage = "Permission required \u{2014} open System Settings to grant access"
-            stopAutoSaveTimer()
-        } else {
-            statusMessage = "\(action) failed: \(error.localizedDescription)"
-        }
-    }
-
-    private func resumeAfterPermissionGranted(runLaunchActions: Bool) {
-        let actions = automationCoordinator.planResumeAfterPermissionGranted(
-            runLaunchActions: runLaunchActions,
-            autoRestoreOnLaunch: autoRestoreOnLaunch,
-            autoSaveOnTimer: autoSaveOnTimer
-        )
-        applyAutomationActions(actions)
-    }
-
-    private func applyAutomationActions(_ actions: [AutomationCoordinator.Action]) {
-        for action in actions {
-            switch action {
-            case .setStatusMessage(let message):
-                statusMessage = message
-            case .restoreAuto:
-                restoreAuto()
-            case .startAutoSaveTimer:
-                startAutoSaveTimer()
-            case .stopAutoSaveTimer:
-                stopAutoSaveTimer()
-            }
-        }
     }
 }

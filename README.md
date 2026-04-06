@@ -76,6 +76,16 @@ swift run --package-path macos-app DesktopIconPosition --finder-smoke-test
 
 This creates and removes temporary files on your Desktop and requires Finder Automation permission.
 
+### Timing Benchmark
+
+To measure end-to-end save and restore performance against your current desktop:
+
+```bash
+swift run --package-path macos-app DesktopIconPosition --timing-benchmark
+```
+
+This runs a full save → restore → adaptive-verify cycle with per-operation timing, then exits. Useful for profiling after code changes. Set `TIMING_LOG=1` to enable timing output in normal app usage.
+
 ### Production Build (.app + DMG)
 
 ```bash
@@ -142,7 +152,7 @@ On save, the app captures icon positions, display geometry, icon size, text size
 2. Disables Finder's auto-arrange (Snap to Grid) to prevent icon drift
 3. Detects if the display setup changed and auto-converts coordinates
 4. Sets all icon positions in a single batch using `ignoring application responses`
-5. Verifies positions after 3 seconds and corrects any that drifted
+5. Adaptive verify: checks at 0.5s, 1.5s, and 3.0s — exits early when no drift is detected, reapplies any that moved
 
 Coordinate conversion works by finding which display each icon was on, calculating its relative position within that display, and remapping onto the current display layout (with 20px padding for out-of-bounds icons).
 
@@ -160,3 +170,4 @@ Coordinate conversion works by finding which display each icon was on, calculati
 - [x] Smart multi-display mapping with displaced icon parking
 - [x] App icon and custom menu bar icon
 - [x] Proper macOS distribution (.app bundle + DMG)
+- [x] Performance optimization: batch reads (DIM-style), adaptive verify, display-change debounce

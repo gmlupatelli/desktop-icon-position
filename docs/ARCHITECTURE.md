@@ -17,23 +17,30 @@ desktop-icon-position/
 │   │   ├── AppIcon.svg                # Source app icon (1024x1024)
 │   │   └── MenuBarIcon.svg            # Source menu bar icon
 │   ├── Sources/DesktopIconPosition/
-│   │   ├── App.swift                  # @main, MenuBarExtra, MenuBarIcon
+│   │   ├── App.swift                  # @main, MenuBarExtra, CLI flags
 │   │   ├── Models/
 │   │   │   ├── DisplayFrame.swift     # Display geometry (Quartz coords)
 │   │   │   ├── IconPosition.swift     # Icon name + x,y
 │   │   │   └── Profile.swift          # Full profile: fingerprint, displays, settings, icons
 │   │   ├── Services/
-│   │   │   ├── CoordinateConverter.swift  # Remap icons between display configs
-│   │   │   ├── DisplayService.swift       # NSScreen queries, fingerprint, display names
-│   │   │   ├── FinderService.swift        # NSAppleScript calls to Finder
-│   │   │   └── ProfileManager.swift       # Read .txt+.json, write .json, CRUD
+│   │   │   ├── CoordinateConverter.swift      # Remap icons between display configs
+│   │   │   ├── DisplayService.swift           # NSScreen queries, fingerprint, display names
+│   │   │   ├── FinderService.swift            # NSAppleScript calls to Finder
+│   │   │   ├── FinderSmokeTestRunner.swift    # --finder-smoke-test CLI runner
+│   │   │   ├── ProfileManager.swift           # Read .txt+.json, write .json, CRUD
+│   │   │   ├── TimingBenchmarkRunner.swift    # --timing-benchmark CLI runner
+│   │   │   └── TimingLog.swift                # Lightweight timing instrumentation
 │   │   ├── ViewModels/
-│   │   │   └── AppViewModel.swift     # @Observable state, orchestrates all operations
+│   │   │   ├── AppViewModel.swift             # @Observable state, orchestrates all operations
+│   │   │   └── AutomationCoordinator.swift    # Pure decision layer for automation flows
 │   │   └── Views/
-│   │       └── MenuBarView.swift      # SwiftUI menu content + NSPanel dialogs
+│   │       ├── MenuBarView.swift      # SwiftUI menu content + NSPanel dialogs
+│   │       └── SettingsView.swift     # Settings window
 │   └── Tests/DesktopIconPositionTests/
+│       ├── AutomationCoordinatorTests.swift
 │       ├── CoordinateConverterTests.swift
 │       ├── DisplayServiceTests.swift
+│       ├── FinderServiceTests.swift
 │       └── ProfileManagerTests.swift
 ├── legacy-desktop-icons-script/
 │   ├── README.md                      # Script-specific docs
@@ -89,13 +96,12 @@ AppViewModel.handleDisplayChange()            AppViewModel.start()
                              └─ .restoreAuto
                                   │
                                   ├─ ProfileManager.findProfile(forFingerprint:)
-                                  └─ AppViewModel.restore(name:)
-                                       ├─ ProfileManager.loadProfile(name:)
+                                  └─ AppViewModel.restore(name:profile:)
                                        ├─ CoordinateConverter.remap(icons:from:to:)
-                                       ├─ FinderService.restoreSettings()
-                                       ├─ FinderService.disableArrangement()
+                                       ├─ FinderService.prepareForRestore()  [settings + disable arrange]
                                        ├─ FinderService.batchSetPositions()
-                                       └─ FinderService.verifyAndReapply() [after 3s delay]
+                                       └─ Adaptive verify chain (0.5s → 1.5s → 3.0s)
+                                            └─ FinderService.verifyAndReapply() [early exit on zero drift]
 ```
 
 If a Finder operation later fails with a permission-denied AppleScript error, `AppViewModel` flips `permissionGranted` to `false`, stops the auto-save timer, and exposes the recovery actions in the menu. `recheckPermission()` retries the lightweight permission probe and, when successful, resumes the launch-time automation that was deferred.
@@ -106,7 +112,9 @@ If a Finder operation later fails with a permission-denied AppleScript error, `A
 |---------|---------------|
 | **AutomationCoordinator** | Pure decision layer for display-change, permission recheck, and post-permission resume flows; returns actions for `AppViewModel` to execute |
 | **DisplayService** | `NSScreen` queries, Cocoa→Quartz coordinate conversion, MD5 fingerprint, display names (`localizedName`), display change observer via `didChangeScreenParametersNotification` |
-| **FinderService** | 6 NSAppleScript operations: read positions, read settings, restore settings, disable arrangement, batch set positions (`ignoring application responses`), verify & reapply, plus a lightweight Finder permission probe and permission-error detection |
+| **FinderService** | NSAppleScript operations: batch read positions (DIM-style `name of items` + `desktop position of items` with fallback to per-item loop), read settings, combined `prepareForRestore` (settings + disable arrangement), batch set positions (`ignoring application responses`), verify & reapply, plus a permission probe and permission-error detection |
+| **TimingLog** | Lightweight timing instrumentation gated behind `--timing-benchmark` flag or `TIMING_LOG=1` env var; `measure()` wraps any closure with elapsed-time logging, `summary()` emits total labels |
+| **TimingBenchmarkRunner** | CLI benchmark runner (`--timing-benchmark`): performs a full save → restore → adaptive-verify cycle with timing labels, then exits |
 | **CoordinateConverter** | `findDisplay(forPoint:in:)`, `matchDisplays(saved:current:)`, and `remap(icons:from:to:)` — smart display-to-display matching with displaced icon parking |
 | **ProfileManager** | Read `.txt` + `.json`, write `.json`, list, load, save, find by fingerprint, delete, rename, auto-profile name generation |
 
@@ -123,6 +131,9 @@ If a Finder operation later fails with a permission-denied AppleScript error, `A
 | `autoSaveOnTimer` | `Bool` | UserDefaults | Periodic save toggle |
 | `autoSaveIntervalMinutes` | `Int` | UserDefaults | Timer interval (5/10/15/30/60) |
 | `showAutoProfiles` | `Bool` | UserDefaults | Show/hide `Auto-` profiles in menus |
+| `isRestoring` | `Bool` | In-memory | Guards against overlapping restores |
+| `verifyTask` | `Task?` | In-memory | Handle for adaptive verify chain (cancelable) |
+| `displayChangeTask` | `Task?` | In-memory | Handle for debounced display-change handler |
 
 ### Dialog Implementation
 
@@ -242,14 +253,23 @@ filename.txt|40|50
 
 ## Restore Process
 
-Both the app and script use the same restore flow:
+The app and script share the same core strategy, inspired by [Desktop Icon Manager (DIM)](https://github.com/com-entonos/Desktop-Icon-Manager):
 
-1. **Restore icon size and text size** — prevents Finder layout recalculation
-2. **Disable Finder arrangement** — `set arrangement of (icon view options of desktop's window) to not arranged`
-3. **Batch position-setting** — all icons in one AppleScript block with `ignoring application responses`
-4. **Post-restore verification** — after 3 seconds, re-read positions, reapply any that drifted (2px tolerance)
+1. **Prepare for restore** — combined AppleScript restores icon size + text size and disables Snap to Grid in one call (`prepareForRestore`), preventing layout recalculation
+2. **Batch position-setting** — all icons in one AppleScript block with `ignoring application responses`
+3. **Adaptive verify/reapply** — verify at 0.5s, 1.5s, and 3.0s after restore; early-exit when zero drift is detected (typical case completes on first pass); reapply any icons that drifted beyond 2px tolerance
+4. **Overlap protection** — `isRestoring` flag prevents concurrent restores; `verifyTask` cancellation stops stale verify chains when a new restore starts
 
-Inspired by [Desktop Icon Manager (DIM)](https://github.com/com-entonos/Desktop-Icon-Manager).
+### Read Optimization
+
+Icon position reads use a two-tier strategy:
+
+1. **Batch read** (primary) — DIM-style `name of items of desktop` + `desktop position of items of desktop` in one AppleScript, joined via text item delimiters. Names and positions use record separator (ASCII 30) and group separator (ASCII 29) delimiters for safe parsing.
+2. **Per-item loop** (fallback) — individual `name of item i` + `desktop position of item i` with try/catch, using unit separator (ASCII 31). Handles edge cases where batch coercion fails.
+
+### Display-Change Debounce
+
+macOS fires multiple `didChangeScreenParametersNotification` events during dock/undock. The app uses cancel-and-replace debounce: each notification cancels any pending display-change task and starts a fresh 5-second delay, collapsing rapid-fire events into a single restore.
 
 ## Build Pipeline
 

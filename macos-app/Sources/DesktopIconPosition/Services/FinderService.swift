@@ -23,7 +23,10 @@ final class FinderService {
     /// Tries a fast batch read first; falls back to per-item loop if batch fails.
     static func readIconPositions() throws -> [IconPosition] {
         // Try fast batch approach first (matches DIM's method)
-        if let output = try? executeAppleScript(readIconPositionsBatchSource(), label: "AS: readIconPositions (batch)") {
+        if let output = try? executeAppleScript(
+            readIconPositionsBatchSource(),
+            label: "AS: readIconPositions (batch)"
+        ) {
             let icons = parseBatchOutput(output)
             if !icons.isEmpty { return icons }
         }
@@ -212,7 +215,7 @@ final class FinderService {
                         try
                             set desktop position of item (\(nameExpr)) of desktop to {\(icon.x), \(icon.y)}
                         end try
-            
+
             """
         }
         return """

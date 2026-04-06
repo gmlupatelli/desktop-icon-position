@@ -1,0 +1,84 @@
+# SwiftLint configuration for DesktopIconPosition
+# https://github.com/realm/SwiftLint
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+
+# ── Rules ────────────────────────────────────────────────────────────────────
+disabled_rules:
+  - trailing_comma           # project uses trailing commas inconsistently
+  - todo                     # allow TODO/FIXME comments during development
+
+opt_in_rules:
+  - empty_count              # prefer .isEmpty over .count == 0
+  - contains_over_first_not_nil
+  - discouraged_optional_boolean
+  - fatal_error_message      # require message in fatalError()
+  - first_where              # prefer .first(where:) over .filter().first
+  - last_where
+  - modifier_order
+  - overridden_super_call
+  - private_action
+  - private_outlet
+  - sorted_first_last        # prefer .min()/.max() over .sorted().first/.last
+  - yoda_condition
+
+# ── Rule Configuration ──────────────────────────────────────────────────────
+line_length:
+  warning: 120
+  error: 160
+  ignores_comments: true
+  ignores_urls: true
+
+file_length:
+  warning: 500
+  error: 1000
+
+type_body_length:
+  warning: 300
+  error: 500
+
+function_body_length:
+  warning: 60
+  error: 100
+
+identifier_name:
+  min_length:
+    warning: 1     # allow short names (x, y, i) for algorithmic code
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - x
+    - y
+    - i
+    - j
+    - k
+
+type_name:
+  min_length:
+    warning: 3
+  max_length:
+    warning: 50
+    error: 60
+
+large_tuple:
+  warning: 3
+  error: 4
+
+force_cast: warning
+force_try: error
+
+nesting:
+  type_level: 2
+  function_level: 3
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25

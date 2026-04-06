@@ -71,7 +71,10 @@ struct MenuBarView: View {
                 }
                 Divider()
                 ForEach(viewModel.visibleProfiles) { profile in
-                    Button("\(profile.name) (\(profile.iconCount) icons, \(profile.displayCount) display\(profile.displayCount == 1 ? "" : "s"))") {
+                    let displaySuffix = profile.displayCount == 1 ? "" : "s"
+                    let label = "\(profile.name) (\(profile.iconCount) icons, "
+                        + "\(profile.displayCount) display\(displaySuffix))"
+                    Button(label) {
                         viewModel.restore(name: profile.name)
                     }
                 }

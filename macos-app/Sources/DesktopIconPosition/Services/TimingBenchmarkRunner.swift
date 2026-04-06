@@ -21,7 +21,31 @@ enum TimingBenchmarkRunner {
 
         let profileName = "__timing_benchmark__"
 
-        // --- SAVE ---
+        guard benchmarkSave(profileName: profileName) else {
+            cleanup(profileName)
+            return 1
+        }
+
+        print()
+
+        do {
+            try await benchmarkRestore(profileName: profileName)
+        } catch {
+            fputs("Restore failed: \(error.localizedDescription)\n", stderr)
+            cleanup(profileName)
+            return 1
+        }
+
+        print()
+        print("=== Benchmark Complete ===")
+
+        cleanup(profileName)
+        return 0
+    }
+
+    /// Run the save phase of the benchmark. Returns true on success.
+    @discardableResult
+    private static func benchmarkSave(profileName: String) -> Bool {
         print("--- SAVE ---")
         let saveStart = CFAbsoluteTimeGetCurrent()
         do {
@@ -41,72 +65,62 @@ enum TimingBenchmarkRunner {
             }
             TimingLog.summary("SAVE TOTAL", startTime: saveStart)
             print("  → \(icons.count) icons saved")
+            return true
         } catch {
             fputs("Save failed: \(error.localizedDescription)\n", stderr)
-            cleanup(profileName)
-            return 1
+            return false
         }
+    }
 
-        print()
-
-        // --- RESTORE ---
+    /// Run the restore + adaptive verify phase of the benchmark.
+    private static func benchmarkRestore(profileName: String) async throws {
         print("--- RESTORE ---")
         let restoreStart = CFAbsoluteTimeGetCurrent()
-        do {
-            let profile = try TimingLog.measure("restore: loadProfile") {
-                try ProfileManager.loadProfile(name: profileName)
-            }
-            let currentDisplays = TimingLog.measure("restore: currentFrames") {
-                DisplayService.currentFrames()
-            }
 
-            var icons = profile.icons
-            if profile.displays != currentDisplays && !profile.displays.isEmpty {
-                icons = TimingLog.measure("restore: remap") {
-                    CoordinateConverter.remap(icons: icons, from: profile.displays, to: currentDisplays)
-                }
-            }
-
-            try TimingLog.measure("restore: prepareForRestore") {
-                try FinderService.prepareForRestore(profile.settings)
-            }
-            try TimingLog.measure("restore: batchSetPositions") {
-                try FinderService.batchSetPositions(icons)
-            }
-            TimingLog.summary("RESTORE (before verify)", startTime: restoreStart)
-
-            // Adaptive verify: 0.5s → 1.5s → 3.0s (same schedule as production)
-            print()
-            print("--- ADAPTIVE VERIFY ---")
-            let verifyDelays: [Double] = [0.5, 1.0, 1.5]
-            var totalCorrected = 0
-            for (attempt, delay) in verifyDelays.enumerated() {
-                try await Task.sleep(for: .seconds(delay))
-                let corrected = try TimingLog.measure("restore: verify pass \(attempt + 1)") {
-                    try FinderService.verifyAndReapply(expected: icons)
-                }
-                totalCorrected += corrected
-                if corrected == 0 {
-                    TimingLog.summary("RESTORE TOTAL (pass \(attempt + 1), no drift)", startTime: restoreStart)
-                    print("  → \(icons.count) icons restored, \(totalCorrected) corrected total")
-                    break
-                }
-                if attempt == verifyDelays.count - 1 {
-                    TimingLog.summary("RESTORE TOTAL (all passes)", startTime: restoreStart)
-                    print("  → \(icons.count) icons restored, \(totalCorrected) corrected total")
-                }
-            }
-        } catch {
-            fputs("Restore failed: \(error.localizedDescription)\n", stderr)
-            cleanup(profileName)
-            return 1
+        let profile = try TimingLog.measure("restore: loadProfile") {
+            try ProfileManager.loadProfile(name: profileName)
+        }
+        let currentDisplays = TimingLog.measure("restore: currentFrames") {
+            DisplayService.currentFrames()
         }
 
-        print()
-        print("=== Benchmark Complete ===")
+        var icons = profile.icons
+        if profile.displays != currentDisplays && !profile.displays.isEmpty {
+            icons = TimingLog.measure("restore: remap") {
+                CoordinateConverter.remap(icons: icons, from: profile.displays, to: currentDisplays)
+            }
+        }
 
-        cleanup(profileName)
-        return 0
+        try TimingLog.measure("restore: prepareForRestore") {
+            try FinderService.prepareForRestore(profile.settings)
+        }
+        try TimingLog.measure("restore: batchSetPositions") {
+            try FinderService.batchSetPositions(icons)
+        }
+        TimingLog.summary("RESTORE (before verify)", startTime: restoreStart)
+
+        // Adaptive verify: 0.5s → 1.5s → 3.0s (same schedule as production)
+        print()
+        print("--- ADAPTIVE VERIFY ---")
+        let verifyDelays: [Double] = [0.5, 1.0, 1.5]
+        var totalCorrected = 0
+        for (attempt, delay) in verifyDelays.enumerated() {
+            try await Task.sleep(for: .seconds(delay))
+            let corrected = try TimingLog.measure("restore: verify pass \(attempt + 1)") {
+                try FinderService.verifyAndReapply(expected: icons)
+            }
+            totalCorrected += corrected
+            if corrected == 0 {
+                let msg = "RESTORE TOTAL (pass \(attempt + 1), no drift)"
+                TimingLog.summary(msg, startTime: restoreStart)
+                print("  → \(icons.count) icons restored, \(totalCorrected) corrected total")
+                break
+            }
+            if attempt == verifyDelays.count - 1 {
+                TimingLog.summary("RESTORE TOTAL (all passes)", startTime: restoreStart)
+                print("  → \(icons.count) icons restored, \(totalCorrected) corrected total")
+            }
+        }
     }
 
     private static func cleanup(_ name: String) {

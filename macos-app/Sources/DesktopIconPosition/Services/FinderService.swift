@@ -20,48 +20,118 @@ final class FinderService {
     // MARK: - Read Operations
 
     /// Read all desktop icon positions. Returns name + Quartz coordinates.
+    /// Tries a fast batch read first; falls back to per-item loop if batch fails.
     static func readIconPositions() throws -> [IconPosition] {
-        let output = try executeAppleScript(readIconPositionsSource(), label: "AS: readIconPositions")
-        return parseIconPositions(output)
+        // Try fast batch approach first (matches DIM's method)
+        if let output = try? executeAppleScript(readIconPositionsBatchSource(), label: "AS: readIconPositions (batch)") {
+            let icons = parseBatchOutput(output)
+            if !icons.isEmpty { return icons }
+        }
+        // Fallback to per-item loop (handles mixed item types that fail batch)
+        let output = try executeAppleScript(readIconPositionsLoopSource(), label: "AS: readIconPositions (loop)")
+        return parseRawIconPositions(output)
     }
 
-    /// AppleScript source for reading desktop icon positions.
-    static func readIconPositionsSource() -> String {
-        // Escape backslash, linefeed, and return in icon names so the
-        // pipe-delimited output stays one-line-per-icon.
-        """
+    /// Fast batch read — asks Finder for all names and positions at once.
+    /// Returns names joined by record separator (ASCII 30) followed by a group
+    /// separator (ASCII 29) and then positions as "x,y" joined by record separator.
+    /// Avoids per-item string building in AppleScript entirely.
+    static func readIconPositionsBatchSource() -> String {
+        return """
         tell application "Finder"
-            set allItems to every item of desktop
-            set posData to ""
+            set iconNames to name of items of desktop
+            set iconPositions to desktop position of items of desktop
+            set itemCount to count of iconNames
+            if itemCount = 0 then return ""
             set saveTID to AppleScript's text item delimiters
-            repeat with anItem in allItems
+            set AppleScript's text item delimiters to (ASCII character 30)
+            set nameStr to iconNames as text
+            set posParts to {}
+            repeat with p in iconPositions
                 try
-                    set itemName to name of anItem as text
-                    -- Escape \\ -> \\\\
-                    set AppleScript's text item delimiters to (ASCII character 92)
-                    set tList to text items of itemName
-                    set AppleScript's text item delimiters to (ASCII character 92) & (ASCII character 92)
-                    set itemName to tList as text
-                    -- Escape LF -> \\n
-                    set AppleScript's text item delimiters to (ASCII character 10)
-                    set tList to text items of itemName
-                    set AppleScript's text item delimiters to (ASCII character 92) & "n"
-                    set itemName to tList as text
-                    -- Escape CR -> \\r
-                    set AppleScript's text item delimiters to (ASCII character 13)
-                    set tList to text items of itemName
-                    set AppleScript's text item delimiters to (ASCII character 92) & "r"
-                    set itemName to tList as text
-                    set AppleScript's text item delimiters to saveTID
-                    set itemPos to desktop position of anItem
-                    set posX to item 1 of itemPos as integer
-                    set posY to item 2 of itemPos as integer
-                    set posData to posData & itemName & "|" & posX & "|" & posY & linefeed
+                    set end of posParts to ((item 1 of p as integer) as text) & "," & ((item 2 of p as integer) as text)
+                on error
+                    set end of posParts to "0,0"
                 end try
             end repeat
+            set posStr to posParts as text
+            set AppleScript's text item delimiters to saveTID
+        end tell
+        return nameStr & (ASCII character 29) & posStr
+        """
+    }
+
+    /// Parse batch output: names and positions separated by group separator (ASCII 29),
+    /// each list delimited by record separator (ASCII 30).
+    static func parseBatchOutput(_ output: String) -> [IconPosition] {
+        guard !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        let sections = output.split(separator: "\u{1D}", maxSplits: 1)
+        guard sections.count == 2 else { return [] }
+
+        let names = String(sections[0]).split(separator: "\u{1E}", omittingEmptySubsequences: false).map(String.init)
+        let positions = String(sections[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: "\u{1E}", omittingEmptySubsequences: false).map(String.init)
+
+        guard names.count == positions.count else { return [] }
+
+        var result: [IconPosition] = []
+        result.reserveCapacity(names.count)
+        for i in 0..<names.count {
+            let name = names[i]
+            guard !name.isEmpty else { continue }
+            let coords = positions[i].split(separator: ",")
+            guard coords.count == 2,
+                  let x = Int(coords[0]),
+                  let y = Int(coords[1]) else { continue }
+            result.append(IconPosition(name: name, x: x, y: y))
+        }
+        return result
+    }
+
+    /// Per-item fallback — gets name and position for each item individually.
+    /// Slower but handles edge cases (alias files, internet location files, etc.)
+    /// where batch calls may fail.
+    static func readIconPositionsLoopSource() -> String {
+        let unitSep = "ASCII character 31"
+        return """
+        tell application "Finder"
+            set allItems to every item of desktop
+            set itemCount to count of allItems
+            if itemCount = 0 then return ""
+            set dataLines to {}
+            repeat with i from 1 to itemCount
+                try
+                    set itemName to name of item i of allItems as text
+                    set itemPos to desktop position of item i of allItems
+                    set posX to item 1 of itemPos as integer
+                    set posY to item 2 of itemPos as integer
+                    set end of dataLines to itemName & (\(unitSep)) & posX & (\(unitSep)) & posY
+                end try
+            end repeat
+            set saveTID to AppleScript's text item delimiters
+            set AppleScript's text item delimiters to linefeed
+            set posData to dataLines as text
+            set AppleScript's text item delimiters to saveTID
         end tell
         return posData
         """
+    }
+
+    /// Parse raw icon position output using unit separator (ASCII 31) delimiter.
+    /// Handles escaping of pipe, backslash, LF, and CR characters in Swift.
+    static func parseRawIconPositions(_ output: String) -> [IconPosition] {
+        guard !output.isEmpty else { return [] }
+        var result: [IconPosition] = []
+        for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
+            let parts = line.split(separator: "\u{1F}", maxSplits: 2, omittingEmptySubsequences: false)
+            guard parts.count == 3 else { continue }
+            let name = String(parts[0])
+            guard !name.isEmpty,
+                  let x = Int(parts[1].trimmingCharacters(in: .whitespaces)),
+                  let y = Int(parts[2].trimmingCharacters(in: .whitespaces)) else { continue }
+            result.append(IconPosition(name: name, x: x, y: y))
+        }
+        return result
     }
 
     /// Read current Finder icon size and text size.

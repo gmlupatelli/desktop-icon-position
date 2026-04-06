@@ -8,12 +8,21 @@ struct FinderServiceParsingTests {
 
     // MARK: - Script generation
 
-    @Test("read script escapes line breaks and backslashes before serialization")
-    func readScriptEscapesUnsafeCharacters() {
-        let source = FinderService.readIconPositionsSource()
-        #expect(source.contains("set AppleScript's text item delimiters to (ASCII character 92) & (ASCII character 92)"))
-        #expect(source.contains("set AppleScript's text item delimiters to (ASCII character 92) & \"n\""))
-        #expect(source.contains("set AppleScript's text item delimiters to (ASCII character 92) & \"r\""))
+    @Test("batch read script uses DIM-style direct item property access")
+    func batchReadScriptUsesDIMStyle() {
+        let source = FinderService.readIconPositionsBatchSource()
+        #expect(source.contains("name of items of desktop"))
+        #expect(source.contains("desktop position of items of desktop"))
+        #expect(source.contains("ASCII character 30"))
+        #expect(source.contains("ASCII character 29"))
+    }
+
+    @Test("loop read script uses per-item access with try/catch")
+    func loopReadScriptUsesPerItemAccess() {
+        let source = FinderService.readIconPositionsLoopSource()
+        #expect(source.contains("name of item i of allItems"))
+        #expect(source.contains("desktop position of item i of allItems"))
+        #expect(source.contains("ASCII character 31"))
     }
 
     @Test("batch script is omitted for empty icon list")

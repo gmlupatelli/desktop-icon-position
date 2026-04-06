@@ -155,4 +155,91 @@ struct FinderServiceParsingTests {
     func unescapeTrailingBackslash() {
         #expect(FinderService.unescapeIconName("abc\\") == "abc\\")
     }
+
+    // MARK: - parseBatchOutput (GS/RS delimiter format)
+
+    @Test("batch output with two icons parsed correctly")
+    func parseBatchOutputNormal() {
+        // names separated by RS (\u{1E}), positions separated by RS, sections split by GS (\u{1D})
+        let output = "alpha\u{1E}beta\u{1D}100,200\u{1E}300,400"
+        let result = FinderService.parseBatchOutput(output)
+        #expect(result.count == 2)
+        #expect(result[0].name == "alpha")
+        #expect(result[0].x == 100)
+        #expect(result[0].y == 200)
+        #expect(result[1].name == "beta")
+        #expect(result[1].x == 300)
+        #expect(result[1].y == 400)
+    }
+
+    @Test("batch output empty string returns empty array")
+    func parseBatchOutputEmpty() {
+        #expect(FinderService.parseBatchOutput("").isEmpty)
+        #expect(FinderService.parseBatchOutput("   \n").isEmpty)
+    }
+
+    @Test("batch output with mismatched name/position count returns empty")
+    func parseBatchOutputMismatch() {
+        let output = "alpha\u{1E}beta\u{1D}100,200"
+        #expect(FinderService.parseBatchOutput(output).isEmpty)
+    }
+
+    @Test("batch output missing group separator returns empty")
+    func parseBatchOutputNoGS() {
+        let output = "alpha\u{1E}100,200"
+        #expect(FinderService.parseBatchOutput(output).isEmpty)
+    }
+
+    @Test("batch output skips entries with malformed coordinates")
+    func parseBatchOutputBadCoords() {
+        let output = "alpha\u{1E}beta\u{1D}100,200\u{1E}bad"
+        let result = FinderService.parseBatchOutput(output)
+        // mismatched count means entire batch is rejected
+        #expect(result.count == 1)
+        #expect(result[0].name == "alpha")
+    }
+
+    @Test("batch output single icon")
+    func parseBatchOutputSingle() {
+        let output = "file.txt\u{1D}42,99"
+        let result = FinderService.parseBatchOutput(output)
+        #expect(result.count == 1)
+        #expect(result[0].name == "file.txt")
+        #expect(result[0].x == 42)
+        #expect(result[0].y == 99)
+    }
+
+    // MARK: - parseRawIconPositions (unit separator format)
+
+    @Test("raw icon positions with unit separator parsed correctly")
+    func parseRawPositionsNormal() {
+        let output = "alpha\u{1F}100\u{1F}200\nbeta\u{1F}300\u{1F}400\n"
+        let result = FinderService.parseRawIconPositions(output)
+        #expect(result.count == 2)
+        #expect(result[0].name == "alpha")
+        #expect(result[0].x == 100)
+        #expect(result[1].name == "beta")
+        #expect(result[1].y == 400)
+    }
+
+    @Test("raw icon positions empty returns empty")
+    func parseRawPositionsEmpty() {
+        #expect(FinderService.parseRawIconPositions("").isEmpty)
+    }
+
+    @Test("raw icon positions skips malformed lines")
+    func parseRawPositionsMalformed() {
+        let output = "only-name\u{1F}100\ngood\u{1F}10\u{1F}20\n"
+        let result = FinderService.parseRawIconPositions(output)
+        #expect(result.count == 1)
+        #expect(result[0].name == "good")
+    }
+
+    @Test("raw icon positions skips empty names")
+    func parseRawPositionsEmptyName() {
+        let output = "\u{1F}100\u{1F}200\ngood\u{1F}10\u{1F}20\n"
+        let result = FinderService.parseRawIconPositions(output)
+        #expect(result.count == 1)
+        #expect(result[0].name == "good")
+    }
 }

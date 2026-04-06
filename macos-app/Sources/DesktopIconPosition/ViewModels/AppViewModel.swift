@@ -16,6 +16,9 @@ final class AppViewModel {
     var statusMessage: String = "Ready"
     var permissionGranted: Bool = true
 
+    /// Task handle for the adaptive verify chain, so a new restore can cancel it.
+    private var verifyTask: Task<Void, Never>?
+
     private var isUpdatingLaunchAtLogin = false
     var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled {
         didSet {
@@ -263,23 +266,35 @@ final class AppViewModel {
 
             TimingLog.summary("RESTORE (before verify)", startTime: restoreStart)
 
-            // 4. Verify after delay and re-apply drifted icons
+            // 2. Adaptive verify: check at 0.5s, 1.5s, 3.0s — stop early if no drift
             let expected = icons
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(3))
-                do {
-                    let corrected = try TimingLog.measure("restore: verifyAndReapply") {
-                        try FinderService.verifyAndReapply(expected: expected)
+            verifyTask?.cancel()
+            verifyTask = Task { @MainActor in
+                let verifyDelays: [Double] = [0.5, 1.0, 1.5]  // cumulative: 0.5s, 1.5s, 3.0s
+                var totalCorrected = 0
+                for (attempt, delay) in verifyDelays.enumerated() {
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled else { return }
+                    do {
+                        let corrected = try TimingLog.measure("restore: verify pass \(attempt + 1)") {
+                            try FinderService.verifyAndReapply(expected: expected)
+                        }
+                        totalCorrected += corrected
+                        if corrected == 0 {
+                            TimingLog.summary("RESTORE TOTAL (verify pass \(attempt + 1), no drift)", startTime: restoreStart)
+                            statusMessage = totalCorrected > 0
+                                ? "Restored \(expected.count) icons, corrected \(totalCorrected)"
+                                : "Restored \(expected.count) icons"
+                            return
+                        }
+                    } catch {
+                        handleFinderError(error, action: "Restore")
+                        return
                     }
-                    TimingLog.summary("RESTORE TOTAL (with verify)", startTime: restoreStart)
-                    if corrected > 0 {
-                        statusMessage = "Restored \(expected.count) icons, corrected \(corrected)"
-                    } else {
-                        statusMessage = "Restored \(expected.count) icons"
-                    }
-                } catch {
-                    handleFinderError(error, action: "Restore")
                 }
+                // All passes completed with some corrections
+                TimingLog.summary("RESTORE TOTAL (all verify passes)", startTime: restoreStart)
+                statusMessage = "Restored \(expected.count) icons, corrected \(totalCorrected)"
             }
         } catch {
             handleFinderError(error, action: "Restore")

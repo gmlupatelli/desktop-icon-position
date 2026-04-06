@@ -75,15 +75,27 @@ enum TimingBenchmarkRunner {
             }
             TimingLog.summary("RESTORE (before verify)", startTime: restoreStart)
 
-            // Verify pass (simulates the 3s wait)
+            // Adaptive verify: 0.5s → 1.5s → 3.0s (same schedule as production)
             print()
-            print("--- VERIFY (after 3s wait) ---")
-            try await Task.sleep(for: .seconds(3))
-            let corrected = try TimingLog.measure("restore: verifyAndReapply") {
-                try FinderService.verifyAndReapply(expected: icons)
+            print("--- ADAPTIVE VERIFY ---")
+            let verifyDelays: [Double] = [0.5, 1.0, 1.5]
+            var totalCorrected = 0
+            for (attempt, delay) in verifyDelays.enumerated() {
+                try await Task.sleep(for: .seconds(delay))
+                let corrected = try TimingLog.measure("restore: verify pass \(attempt + 1)") {
+                    try FinderService.verifyAndReapply(expected: icons)
+                }
+                totalCorrected += corrected
+                if corrected == 0 {
+                    TimingLog.summary("RESTORE TOTAL (pass \(attempt + 1), no drift)", startTime: restoreStart)
+                    print("  → \(icons.count) icons restored, \(totalCorrected) corrected total")
+                    break
+                }
+                if attempt == verifyDelays.count - 1 {
+                    TimingLog.summary("RESTORE TOTAL (all passes)", startTime: restoreStart)
+                    print("  → \(icons.count) icons restored, \(totalCorrected) corrected total")
+                }
             }
-            TimingLog.summary("RESTORE TOTAL (with verify)", startTime: restoreStart)
-            print("  → \(icons.count) icons restored, \(corrected) corrected")
         } catch {
             fputs("Restore failed: \(error.localizedDescription)\n", stderr)
             cleanup(profileName)

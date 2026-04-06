@@ -24,6 +24,8 @@
     <true/>
     <key>LSUIElement</key>
     <true/>
+    <key>LSMultipleInstancesProhibited</key>
+    <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Desktop Icon Position needs to control Finder to save and restore your desktop icon positions.</string>
 </dict>

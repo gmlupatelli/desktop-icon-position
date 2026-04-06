@@ -77,6 +77,14 @@ struct DesktopIconPositionApp: App {
     }
 
     init() {
+        // Prevent multiple instances from running simultaneously
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.desktop-icon-position"
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+        if running.count > 1 {
+            running.first(where: { $0 != .current })?.activate()
+            exit(0)
+        }
+
         // Register defaults before any UserDefaults reads
         UserDefaults.standard.register(defaults: [
             "autoRestoreEnabled": true,

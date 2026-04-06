@@ -19,6 +19,12 @@ final class AppViewModel {
     /// Task handle for the adaptive verify chain, so a new restore can cancel it.
     private var verifyTask: Task<Void, Never>?
 
+    /// True while a restore (including its verify chain) is in progress.
+    private var isRestoring = false
+
+    /// Task handle for the pending display-change handler, for debounce/cancellation.
+    private var displayChangeTask: Task<Void, Never>?
+
     private var isUpdatingLaunchAtLogin = false
     var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled {
         didSet {
@@ -251,6 +257,7 @@ final class AppViewModel {
     /// Core restore logic. Accepts a pre-loaded profile to avoid redundant disk reads
     /// (e.g. when restoreAuto already loaded the profile via findAutoProfile).
     private func restore(name: String, profile: Profile) {
+        isRestoring = true
         let restoreStart = CFAbsoluteTimeGetCurrent()
         do {
             statusMessage = "Restoring..."
@@ -279,7 +286,8 @@ final class AppViewModel {
             // 2. Adaptive verify: check at 0.5s, 1.5s, 3.0s — stop early if no drift
             let expected = icons
             verifyTask?.cancel()
-            verifyTask = Task { @MainActor in
+            verifyTask = Task { @MainActor [weak self] in
+                defer { self?.isRestoring = false }
                 let verifyDelays: [Double] = [0.5, 1.0, 1.5]  // cumulative: 0.5s, 1.5s, 3.0s
                 var totalCorrected = 0
                 for (attempt, delay) in verifyDelays.enumerated() {
@@ -292,27 +300,30 @@ final class AppViewModel {
                         totalCorrected += corrected
                         if corrected == 0 {
                             TimingLog.summary("RESTORE TOTAL (verify pass \(attempt + 1), no drift)", startTime: restoreStart)
-                            statusMessage = totalCorrected > 0
+                            self?.statusMessage = totalCorrected > 0
                                 ? "Restored \(expected.count) icons, corrected \(totalCorrected)"
                                 : "Restored \(expected.count) icons"
                             return
                         }
                     } catch {
-                        handleFinderError(error, action: "Restore")
+                        self?.handleFinderError(error, action: "Restore")
                         return
                     }
                 }
                 // All passes completed with some corrections
                 TimingLog.summary("RESTORE TOTAL (all verify passes)", startTime: restoreStart)
-                statusMessage = "Restored \(expected.count) icons, corrected \(totalCorrected)"
+                self?.statusMessage = "Restored \(expected.count) icons, corrected \(totalCorrected)"
             }
         } catch {
+            isRestoring = false
             handleFinderError(error, action: "Restore")
         }
     }
 
     /// Restore the auto-profile matching the current display fingerprint.
+    /// Skips if a restore is already in progress to prevent overlapping restores.
     func restoreAuto() {
+        guard !isRestoring else { return }
         do {
             let fp = DisplayService.fingerprint()
             guard let (name, profile) = try ProfileManager.findAutoProfile(forFingerprint: fp) else {
@@ -354,10 +365,21 @@ final class AppViewModel {
     // MARK: - Display Change Observer
 
     private func startDisplayObserver() {
-        displayObserver = DisplayService.observeDisplayChanges(delay: 5.0) { [weak self] in
+        displayObserver = DisplayService.observeDisplayChanges(delay: 0) { [weak self] in
             Task { @MainActor [weak self] in
-                self?.handleDisplayChange()
+                self?.scheduleDisplayChange()
             }
+        }
+    }
+
+    /// Debounce display-change handling: cancel any pending task, then wait 5s.
+    /// This collapses rapid-fire notifications (common during dock/undock) into one.
+    private func scheduleDisplayChange() {
+        displayChangeTask?.cancel()
+        displayChangeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            self?.handleDisplayChange()
         }
     }
 

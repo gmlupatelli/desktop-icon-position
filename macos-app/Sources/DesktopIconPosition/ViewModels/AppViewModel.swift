@@ -240,10 +240,20 @@ final class AppViewModel {
 
     /// Restore a profile by name. Auto-converts coordinates if display setup changed.
     func restore(name: String) {
+        do {
+            let profile = try ProfileManager.loadProfile(name: name)
+            restore(name: name, profile: profile)
+        } catch {
+            handleFinderError(error, action: "Restore")
+        }
+    }
+
+    /// Core restore logic. Accepts a pre-loaded profile to avoid redundant disk reads
+    /// (e.g. when restoreAuto already loaded the profile via findAutoProfile).
+    private func restore(name: String, profile: Profile) {
         let restoreStart = CFAbsoluteTimeGetCurrent()
         do {
             statusMessage = "Restoring..."
-            let profile = try TimingLog.measure("restore: loadProfile") { try ProfileManager.loadProfile(name: name) }
             let currentDisplays = TimingLog.measure("restore: currentFrames") { DisplayService.currentFrames() }
 
             // Determine if coordinate conversion is needed
@@ -305,11 +315,11 @@ final class AppViewModel {
     func restoreAuto() {
         do {
             let fp = DisplayService.fingerprint()
-            guard let (name, _) = try ProfileManager.findAutoProfile(forFingerprint: fp) else {
+            guard let (name, profile) = try ProfileManager.findAutoProfile(forFingerprint: fp) else {
                 statusMessage = "No profile for current display config"
                 return
             }
-            restore(name: name)
+            restore(name: name, profile: profile)
         } catch {
             handleFinderError(error, action: "Auto-restore")
         }

@@ -21,7 +21,7 @@ final class FinderService {
 
     /// Read all desktop icon positions. Returns name + Quartz coordinates.
     static func readIconPositions() throws -> [IconPosition] {
-        let output = try executeAppleScript(readIconPositionsSource())
+        let output = try executeAppleScript(readIconPositionsSource(), label: "AS: readIconPositions")
         return parseIconPositions(output)
     }
 
@@ -73,7 +73,7 @@ final class FinderService {
             return (iSize as text) & "|" & (tSize as text)
         end tell
         """
-        let output = try executeAppleScript(source)
+        let output = try executeAppleScript(source, label: "AS: readSettings")
         let parts = output.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "|")
         guard parts.count == 2,
               let iconSize = Int(parts[0]),
@@ -94,7 +94,7 @@ final class FinderService {
             set text size of (icon view options of desktop's window) to \(settings.textSize)
         end tell
         """
-        try executeAppleScript(source)
+        try executeAppleScript(source, label: "AS: restoreSettings")
     }
 
     /// Disable Finder's auto-arrange / Snap to Grid to prevent icon drift after restore.
@@ -106,14 +106,14 @@ final class FinderService {
             end if
         end tell
         """
-        try executeAppleScript(source)
+        try executeAppleScript(source, label: "AS: disableArrangement")
     }
 
     /// Set all icon positions in a single batch, wrapped in `ignoring application responses`
     /// to prevent Finder from rearranging icons mid-restore.
     static func batchSetPositions(_ icons: [IconPosition]) throws {
         guard let source = batchSetPositionsSource(icons) else { return }
-        try executeAppleScript(source)
+        try executeAppleScript(source, label: "AS: batchSetPositions (\(icons.count) icons)")
     }
 
     /// AppleScript source for restoring a batch of icon positions.
@@ -180,15 +180,17 @@ final class FinderService {
     // MARK: - Private Helpers
 
     @discardableResult
-    private static func executeAppleScript(_ source: String) throws -> String {
-        var errorInfo: NSDictionary?
-        let script = NSAppleScript(source: source)!
-        let result = script.executeAndReturnError(&errorInfo)
-        if let error = errorInfo {
-            let msg = error[NSAppleScript.errorMessage] as? String ?? "Unknown error"
-            throw FinderError.scriptError(msg)
+    private static func executeAppleScript(_ source: String, label: String = "AppleScript") throws -> String {
+        return try TimingLog.measure(label) {
+            var errorInfo: NSDictionary?
+            let script = NSAppleScript(source: source)!
+            let result = script.executeAndReturnError(&errorInfo)
+            if let error = errorInfo {
+                let msg = error[NSAppleScript.errorMessage] as? String ?? "Unknown error"
+                throw FinderError.scriptError(msg)
+            }
+            return result.stringValue ?? ""
         }
-        return result.stringValue ?? ""
     }
 
     /// Parse `name|x|y` lines using right-to-left splitting so `|` in

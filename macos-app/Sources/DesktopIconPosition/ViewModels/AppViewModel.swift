@@ -147,12 +147,13 @@ final class AppViewModel {
     }
 
     private func save(name: String, allowReservedAutoName: Bool) {
+        let saveStart = CFAbsoluteTimeGetCurrent()
         do {
             statusMessage = "Saving..."
-            let frames = DisplayService.currentFrames()
-            let fingerprint = DisplayService.fingerprint()
-            let settings = try FinderService.readSettings()
-            let icons = try FinderService.readIconPositions()
+            let frames = TimingLog.measure("save: currentFrames") { DisplayService.currentFrames() }
+            let fingerprint = TimingLog.measure("save: fingerprint") { DisplayService.fingerprint() }
+            let settings = try TimingLog.measure("save: readSettings") { try FinderService.readSettings() }
+            let icons = try TimingLog.measure("save: readIconPositions") { try FinderService.readIconPositions() }
 
             let profile = Profile(
                 fingerprint: fingerprint,
@@ -160,8 +161,9 @@ final class AppViewModel {
                 settings: settings,
                 icons: icons
             )
-            try ProfileManager.saveProfile(profile, name: name, allowReservedAutoName: allowReservedAutoName)
+            try TimingLog.measure("save: writeProfile") { try ProfileManager.saveProfile(profile, name: name, allowReservedAutoName: allowReservedAutoName) }
             refreshProfiles()
+            TimingLog.summary("SAVE TOTAL", startTime: saveStart)
             statusMessage = "Saved \(icons.count) icons to \"\(name)\""
         } catch {
             handleFinderError(error, action: "Save")
@@ -221,36 +223,44 @@ final class AppViewModel {
 
     /// Restore a profile by name. Auto-converts coordinates if display setup changed.
     func restore(name: String) {
+        let restoreStart = CFAbsoluteTimeGetCurrent()
         do {
             statusMessage = "Restoring..."
-            let profile = try ProfileManager.loadProfile(name: name)
-            let currentDisplays = DisplayService.currentFrames()
+            let profile = try TimingLog.measure("restore: loadProfile") { try ProfileManager.loadProfile(name: name) }
+            let currentDisplays = TimingLog.measure("restore: currentFrames") { DisplayService.currentFrames() }
 
             // Determine if coordinate conversion is needed
             var icons = profile.icons
             if profile.displays != currentDisplays.map({ $0 }) && !profile.displays.isEmpty {
-                icons = CoordinateConverter.remap(
-                    icons: icons,
-                    from: profile.displays,
-                    to: currentDisplays
-                )
+                icons = TimingLog.measure("restore: remap") {
+                    CoordinateConverter.remap(
+                        icons: icons,
+                        from: profile.displays,
+                        to: currentDisplays
+                    )
+                }
             }
 
             // 1. Restore settings first (prevents Finder layout recalculation)
-            try FinderService.restoreSettings(profile.settings)
+            try TimingLog.measure("restore: restoreSettings") { try FinderService.restoreSettings(profile.settings) }
 
             // 2. Disable auto-arrange (prevents Snap to Grid drift)
-            try FinderService.disableArrangement()
+            try TimingLog.measure("restore: disableArrangement") { try FinderService.disableArrangement() }
 
             // 3. Batch set all positions
-            try FinderService.batchSetPositions(icons)
+            try TimingLog.measure("restore: batchSetPositions") { try FinderService.batchSetPositions(icons) }
+
+            TimingLog.summary("RESTORE (before verify)", startTime: restoreStart)
 
             // 4. Verify after delay and re-apply drifted icons
             let expected = icons
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(3))
                 do {
-                    let corrected = try FinderService.verifyAndReapply(expected: expected)
+                    let corrected = try TimingLog.measure("restore: verifyAndReapply") {
+                        try FinderService.verifyAndReapply(expected: expected)
+                    }
+                    TimingLog.summary("RESTORE TOTAL (with verify)", startTime: restoreStart)
                     if corrected > 0 {
                         statusMessage = "Restored \(expected.count) icons, corrected \(corrected)"
                     } else {

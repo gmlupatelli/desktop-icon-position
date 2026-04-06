@@ -66,6 +66,7 @@ enum MenuBarIcon {
 struct DesktopIconPositionApp: App {
     @State private var viewModel = AppViewModel()
     private let smokeTestEnabled = FinderSmokeTestRunner.isEnabled()
+    private let benchmarkEnabled = TimingBenchmarkRunner.isEnabled()
 
     var body: some Scene {
         MenuBarExtra {
@@ -86,6 +87,15 @@ struct DesktopIconPositionApp: App {
             DispatchQueue.main.async {
                 Task { @MainActor in
                     let exitCode = await FinderSmokeTestRunner.run()
+                    fflush(stdout)
+                    fflush(stderr)
+                    exit(exitCode)
+                }
+            }
+        } else if benchmarkEnabled {
+            DispatchQueue.main.async {
+                Task { @MainActor in
+                    let exitCode = await TimingBenchmarkRunner.run()
                     fflush(stdout)
                     fflush(stderr)
                     exit(exitCode)

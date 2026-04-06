@@ -48,21 +48,18 @@ extension AppViewModel {
         }
 
         let hostingView = NSHostingView(rootView: SettingsView(viewModel: self))
-        let settingsWindowSize = hostingView.fittingSize
-        hostingView.frame = NSRect(origin: .zero, size: settingsWindowSize)
+        let windowSize = NSSize(width: 480, height: 460)
 
         let window = NSWindow(
-            contentRect: hostingView.frame,
+            contentRect: NSRect(origin: .zero, size: windowSize),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Desktop Icon Position Settings"
+        window.title = "Desktop Icon Position"
         window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
-        window.setContentSize(settingsWindowSize)
-        window.contentMinSize = settingsWindowSize
         window.tabbingMode = .disallowed
 
         settingsWindow = window

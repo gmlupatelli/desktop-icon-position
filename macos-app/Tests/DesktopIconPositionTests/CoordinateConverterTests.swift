@@ -1,9 +1,7 @@
-import Testing
 @testable import DesktopIconPosition
+import Testing
 
-@Suite("CoordinateConverter")
 struct CoordinateConverterTests {
-
     // MARK: - findDisplay
 
     @Test("finds correct display for point inside bounds")
@@ -70,18 +68,18 @@ struct CoordinateConverterTests {
     @Test("3 saved to 2 current: removed display maps to closest")
     func matchThreeToTwo() {
         let saved = [
-            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),       // Built-in
-            DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080),   // DELL left
-            DisplayFrame(x: 1792, y: 0, width: 1920, height: 1080),    // DELL right
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120), // Built-in
+            DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080), // DELL left
+            DisplayFrame(x: 1792, y: 0, width: 1920, height: 1080), // DELL right
         ]
         let current = [
-            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),       // Built-in
-            DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080),   // DELL left
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120), // Built-in
+            DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080), // DELL left
         ]
         let mapping = CoordinateConverter.matchDisplays(saved: saved, current: current)
-        #expect(mapping[0] == 0)  // Built-in → Built-in
-        #expect(mapping[1] == 1)  // DELL left → DELL left
-        #expect(mapping[2] == 0)  // DELL right (removed) → closest = Built-in
+        #expect(mapping[0] == 0) // Built-in → Built-in
+        #expect(mapping[1] == 1) // DELL left → DELL left
+        #expect(mapping[2] == 0) // DELL right (removed) → closest = Built-in
     }
 
     @Test("shifted layout maps 1:1 instead of collapsing")
@@ -95,8 +93,8 @@ struct CoordinateConverterTests {
             DisplayFrame(x: 2880, y: 0, width: 1920, height: 1080),
         ]
         let mapping = CoordinateConverter.matchDisplays(saved: saved, current: current)
-        #expect(mapping[0] == 0)  // saved left → current left
-        #expect(mapping[1] == 1)  // saved right → current right
+        #expect(mapping[0] == 0) // saved left → current left
+        #expect(mapping[1] == 1) // saved right → current right
     }
 
     @Test("swapped displays map to correct new positions")
@@ -110,8 +108,8 @@ struct CoordinateConverterTests {
             DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),
         ]
         let mapping = CoordinateConverter.matchDisplays(saved: saved, current: current)
-        #expect(mapping[0] == 1)  // saved[0] was at (0,0) → current[1] is now at (0,0)
-        #expect(mapping[1] == 0)  // saved[1] was at (1920,0) → current[0] is now at (1920,0)
+        #expect(mapping[0] == 1) // saved[0] was at (0,0) → current[1] is now at (0,0)
+        #expect(mapping[1] == 0) // saved[1] was at (1920,0) → current[0] is now at (1920,0)
     }
 
     @Test("3→2 with overlap ambiguity: unique assignment + tiebreaker")
@@ -119,19 +117,24 @@ struct CoordinateConverterTests {
         // saved[0] and saved[1] both overlap current[0], but saved[0] overlaps more.
         // saved[2] only overlaps current[1].
         let saved = [
-            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),       // overlaps current[0] fully
-            DisplayFrame(x: 1440, y: 0, width: 1920, height: 1080),    // overlaps current[0] partially, current[1] partially
-            DisplayFrame(x: 3840, y: 0, width: 1920, height: 1080),    // overlaps current[1] partially
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080), // overlaps current[0] fully
+            DisplayFrame(
+                x: 1440,
+                y: 0,
+                width: 1920,
+                height: 1080
+            ), // overlaps current[0] partially, current[1] partially
+            DisplayFrame(x: 3840, y: 0, width: 1920, height: 1080), // overlaps current[1] partially
         ]
         let current = [
-            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080),       // full match for saved[0]
-            DisplayFrame(x: 1920, y: 0, width: 1920, height: 1080),    // partial match for saved[1] and saved[2]
+            DisplayFrame(x: 0, y: 0, width: 1920, height: 1080), // full match for saved[0]
+            DisplayFrame(x: 1920, y: 0, width: 1920, height: 1080), // partial match for saved[1] and saved[2]
         ]
         let mapping = CoordinateConverter.matchDisplays(saved: saved, current: current)
-        #expect(mapping[0] == 0)  // saved[0] → current[0] (full overlap)
-        #expect(mapping[1] == 1)  // saved[1] → current[1] (unique assignment forces it off current[0])
+        #expect(mapping[0] == 0) // saved[0] → current[0] (full overlap)
+        #expect(mapping[1] == 1) // saved[1] → current[1] (unique assignment forces it off current[0])
         // saved[2] has no remaining unclaimed display → falls back to best match
-        #expect(mapping[2] == 1)  // saved[2] → current[1] (closest/most overlap)
+        #expect(mapping[2] == 1) // saved[2] → current[1] (closest/most overlap)
     }
 
     // MARK: - remap: identity
@@ -158,8 +161,8 @@ struct CoordinateConverterTests {
         let icons = [IconPosition(name: "file.txt", x: 1900, y: 50)]
         let result = CoordinateConverter.remap(icons: icons, from: saved, to: current)
         // Icon from removed display should be parked at bottom of primary
-        #expect(result[0].y > 900)  // near bottom
-        #expect(result[0].x >= 20)  // within bounds
+        #expect(result[0].y > 900) // near bottom
+        #expect(result[0].x >= 20) // within bounds
         #expect(result[0].x <= 1772)
     }
 
@@ -181,7 +184,7 @@ struct CoordinateConverterTests {
     // MARK: - remap: three displays to two
 
     @Test("3→2: icons on remaining displays stay, displaced icons parked at bottom")
-    func remapThreeToTwo() {
+    func remapThreeToTwo() throws {
         let saved = [
             DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
             DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080),
@@ -192,24 +195,24 @@ struct CoordinateConverterTests {
             DisplayFrame(x: -1920, y: 0, width: 1920, height: 1080),
         ]
         let icons = [
-            IconPosition(name: "builtin.txt", x: 100, y: 100),    // on Built-in
-            IconPosition(name: "left.txt", x: -1800, y: 50),      // on DELL left
-            IconPosition(name: "right.txt", x: 1900, y: 50),      // on DELL right (removed)
+            IconPosition(name: "builtin.txt", x: 100, y: 100), // on Built-in
+            IconPosition(name: "left.txt", x: -1800, y: 50), // on DELL left
+            IconPosition(name: "right.txt", x: 1900, y: 50), // on DELL right (removed)
         ]
         let result = CoordinateConverter.remap(icons: icons, from: saved, to: current)
 
         // Icons on remaining displays keep positions
-        let builtin = result.first { $0.name == "builtin.txt" }!
+        let builtin = try #require(result.first { $0.name == "builtin.txt" })
         #expect(builtin.x == 100)
         #expect(builtin.y == 100)
 
-        let left = result.first { $0.name == "left.txt" }!
+        let left = try #require(result.first { $0.name == "left.txt" })
         #expect(left.x == -1800)
         #expect(left.y == 50)
 
         // Icon on removed display is parked at bottom of its target (Built-in)
-        let right = result.first { $0.name == "right.txt" }!
-        #expect(right.y > 900)  // near bottom of Built-in (height 1120)
+        let right = try #require(result.first { $0.name == "right.txt" })
+        #expect(right.y > 900) // near bottom of Built-in (height 1120)
         #expect(right.x >= 20 && right.x <= 1772)
     }
 
@@ -256,8 +259,8 @@ struct CoordinateConverterTests {
         // Displaced (no overlap since sizes differ completely, but there IS overlap
         // because both start at 0,0). Actually 800x600 overlaps with 1920x1080 at 0,0.
         // So this is a native icon, clamped to smaller display.
-        #expect(result[0].x == 780)  // 0 + 800 - 20
-        #expect(result[0].y == 580)  // 0 + 600 - 20
+        #expect(result[0].x == 780) // 0 + 800 - 20
+        #expect(result[0].y == 580) // 0 + 600 - 20
     }
 
     @Test("icon near origin is clamped to minimum padding")

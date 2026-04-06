@@ -1,18 +1,23 @@
 import Foundation
 
 /// Desktop icon/text size settings from Finder.
-struct DesktopSettings: Codable, Hashable, Sendable {
+struct DesktopSettings: Codable, Hashable {
     let iconSize: Int
     let textSize: Int
 }
 
 /// A saved profile containing display geometry, settings, and icon positions.
-struct Profile: Codable, Sendable {
+struct Profile: Codable {
     let fingerprint: String
     let displays: [DisplayFrame]
     let settings: DesktopSettings
     let icons: [IconPosition]
 
-    var displayCount: Int { displays.count }
-    var iconCount: Int { icons.count }
+    var displayCount: Int {
+        displays.count
+    }
+
+    var iconCount: Int {
+        icons.count
+    }
 }

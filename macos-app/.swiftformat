@@ -1,0 +1,37 @@
+# SwiftFormat configuration for DesktopIconPosition
+# https://github.com/nicklockwood/SwiftFormat
+
+# ── Format Options ───────────────────────────────────────────────────────────
+
+--indent 4
+--indentcase false
+--trimwhitespace always
+--importgrouping alpha
+--semicolons never
+--commas always
+--wrapcollections before-first
+--wraparguments before-first
+--wrapparameters before-first
+--wrapconditions preserve
+--wrapreturntype preserve
+--closingparen balanced
+--funcattributes prev-line
+--typeattributes prev-line
+--maxwidth 120
+--self remove
+--extensionacl on-declarations
+--swiftversion 6.0
+
+# ── Rules ────────────────────────────────────────────────────────────────────
+
+--enable isEmpty,sortImports,trailingCommas,redundantSelf,blankLinesBetweenScopes
+
+# Don't reorder switch/enum cases or struct members
+--disable sortSwitchCases,organizeDeclarations
+
+# Preserve grouping of related code
+--disable blankLinesBetweenImports
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+
+--exclude .build

@@ -1,11 +1,9 @@
-import Testing
 import CryptoKit
-import Foundation
 @testable import DesktopIconPosition
+import Foundation
+import Testing
 
-@Suite("DisplayService")
 struct DisplayServiceTests {
-
     @Test("fingerprint is deterministic for same input")
     func fingerprintStability() {
         let frames = [

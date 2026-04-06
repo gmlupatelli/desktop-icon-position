@@ -1,11 +1,9 @@
-import Testing
-import Foundation
 @testable import DesktopIconPosition
+import Foundation
+import Testing
 
-@Suite("FinderService Parsing")
 @MainActor
 struct FinderServiceParsingTests {
-
     // MARK: - Script generation
 
     @Test("batch read script uses DIM-style direct item property access")
@@ -47,7 +45,11 @@ struct FinderServiceParsingTests {
         let source = FinderService.batchSetPositionsSource([
             IconPosition(name: "line1\nline2", x: 10, y: 20),
         ])
-        #expect(source?.contains("set desktop position of item (\"line1\" & (ASCII character 10) & \"line2\") of desktop to {10, 20}") == true)
+        #expect(source?
+            .contains(
+                "set desktop position of item (\"line1\" & (ASCII character 10) & \"line2\") of desktop to {10, 20}"
+            ) ==
+            true)
     }
 
     // MARK: - parseIconPositions

@@ -85,7 +85,7 @@ enum TimingBenchmarkRunner {
         }
 
         var icons = profile.icons
-        if profile.displays != currentDisplays && !profile.displays.isEmpty {
+        if profile.displays != currentDisplays, !profile.displays.isEmpty {
             icons = TimingLog.measure("restore: remap") {
                 CoordinateConverter.remap(icons: icons, from: profile.displays, to: currentDisplays)
             }

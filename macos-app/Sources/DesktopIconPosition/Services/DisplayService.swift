@@ -5,7 +5,6 @@ import Foundation
 /// Reads display geometry from NSScreen and observes display configuration changes.
 @MainActor
 final class DisplayService {
-
     /// Returns display frames in Quartz/CG coordinates (matching Finder's coordinate system).
     /// Converts from NSScreen's Cocoa coordinates (bottom-left origin) to CG (top-left origin).
     static func currentFrames() -> [DisplayFrame] {
@@ -40,7 +39,7 @@ final class DisplayService {
 
     /// Returns localized display names (e.g. "Built-in Retina Display", "DELL U2720Q").
     static func displayNames() -> [String] {
-        NSScreen.screens.map { $0.localizedName }
+        NSScreen.screens.map(\.localizedName)
     }
 
     /// Observe display configuration changes via NSApplication notification.
@@ -49,7 +48,7 @@ final class DisplayService {
         delay: TimeInterval = 5.0,
         handler: @escaping @Sendable () -> Void
     ) -> NSObjectProtocol {
-        let observer = NotificationCenter.default.addObserver(
+        NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
@@ -59,6 +58,5 @@ final class DisplayService {
                 handler()
             }
         }
-        return observer
     }
 }

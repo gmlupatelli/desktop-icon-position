@@ -95,11 +95,10 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    @ViewBuilder
-    private func settingsSection<Content: View>(
+    private func settingsSection(
         title: String,
         footer: String,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: () -> some View
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)

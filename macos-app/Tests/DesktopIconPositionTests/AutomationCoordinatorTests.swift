@@ -1,7 +1,6 @@
-import Testing
 @testable import DesktopIconPosition
+import Testing
 
-@Suite("AutomationCoordinator")
 struct AutomationCoordinatorTests {
     private let coordinator = AutomationCoordinator()
 

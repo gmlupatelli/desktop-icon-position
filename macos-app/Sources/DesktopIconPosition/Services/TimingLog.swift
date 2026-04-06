@@ -3,10 +3,8 @@ import Foundation
 /// Lightweight timing logger for performance instrumentation.
 /// Enabled when the `--timing-benchmark` flag is present or `TIMING_LOG=1` env var is set.
 enum TimingLog {
-    static let enabled: Bool = {
-        CommandLine.arguments.contains("--timing-benchmark")
-            || ProcessInfo.processInfo.environment["TIMING_LOG"] == "1"
-    }()
+    static let enabled: Bool = CommandLine.arguments.contains("--timing-benchmark")
+        || ProcessInfo.processInfo.environment["TIMING_LOG"] == "1"
 
     /// Measure and print the elapsed time for a synchronous block.
     @discardableResult

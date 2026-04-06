@@ -3,7 +3,6 @@ import Foundation
 /// Converts icon positions between different display configurations.
 /// Port of the shell script's `remap_coordinates()` and `find_display_for_point()`.
 enum CoordinateConverter {
-
     /// Finds which display contains the given point.
     /// Falls back to the first display if no display contains the point.
     static func findDisplay(forPoint px: Int, _ py: Int, in displays: [DisplayFrame]) -> DisplayFrame {
@@ -83,7 +82,7 @@ enum CoordinateConverter {
                 // Pick overall best current display for this saved display.
                 var fallbackIndex = 0
                 var fallbackScore: (overlap: Int, negDist: Int) = (scores[si][0].overlap, scores[si][0].negDist)
-                for ci in 1..<current.count {
+                for ci in 1 ..< current.count {
                     let s = scores[si][ci]
                     if (s.overlap, s.negDist) > (fallbackScore.overlap, fallbackScore.negDist) {
                         fallbackScore = s
@@ -124,7 +123,7 @@ enum CoordinateConverter {
 
         // Determine which saved displays are "native" matches (mapped to a current display
         // that overlaps them) vs "displaced" (mapped to a non-overlapping display).
-        var nativeMapping: Set<Int> = []  // saved indices with overlap
+        var nativeMapping: Set<Int> = [] // saved indices with overlap
         for (si, savedFrame) in savedDisplays.enumerated() {
             guard let ci = mapping[si] else { continue }
             if savedFrame.overlapArea(with: currentDisplays[ci]) > 0 {
@@ -162,7 +161,7 @@ enum CoordinateConverter {
         }
 
         // Park displaced icons at the bottom of their target display in a grid
-        let gridSpacing = 100  // spacing between parked icons
+        let gridSpacing = 100 // spacing between parked icons
 
         for (targetIdx, displaced) in displacedByTarget {
             let target = currentDisplays[targetIdx]

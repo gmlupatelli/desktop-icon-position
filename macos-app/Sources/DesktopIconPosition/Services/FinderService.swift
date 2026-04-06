@@ -7,7 +7,7 @@ enum FinderError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .scriptError(let msg): return "Finder AppleScript error: \(msg)"
+        case let .scriptError(msg): "Finder AppleScript error: \(msg)"
         }
     }
 }
@@ -16,7 +16,6 @@ enum FinderError: LocalizedError {
 /// All scripts match the shell script's AppleScript blocks exactly.
 @MainActor
 final class FinderService {
-
     // MARK: - Read Operations
 
     /// Read all desktop icon positions. Returns name + Quartz coordinates.
@@ -40,7 +39,7 @@ final class FinderService {
     /// separator (ASCII 29) and then positions as "x,y" joined by record separator.
     /// Avoids per-item string building in AppleScript entirely.
     static func readIconPositionsBatchSource() -> String {
-        return """
+        """
         tell application "Finder"
             set iconNames to name of items of desktop
             set iconPositions to desktop position of items of desktop
@@ -79,7 +78,7 @@ final class FinderService {
 
         var result: [IconPosition] = []
         result.reserveCapacity(names.count)
-        for i in 0..<names.count {
+        for i in 0 ..< names.count {
             let name = names[i]
             guard !name.isEmpty else { continue }
             let coords = positions[i].split(separator: ",")
@@ -150,7 +149,8 @@ final class FinderService {
         let parts = output.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "|")
         guard parts.count == 2,
               let iconSize = Int(parts[0]),
-              let textSize = Int(parts[1]) else {
+              let textSize = Int(parts[1])
+        else {
             throw FinderError.scriptError("Unexpected settings format: \(output)")
         }
         return DesktopSettings(iconSize: iconSize, textSize: textSize)
@@ -270,7 +270,7 @@ final class FinderService {
 
     @discardableResult
     private static func executeAppleScript(_ source: String, label: String = "AppleScript") throws -> String {
-        return try TimingLog.measure(label) {
+        try TimingLog.measure(label) {
             var errorInfo: NSDictionary?
             let script = NSAppleScript(source: source)!
             let result = script.executeAndReturnError(&errorInfo)
@@ -288,16 +288,17 @@ final class FinderService {
         output.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
             let str = String(line)
             guard let lastPipe = str.lastIndex(of: "|") else { return nil }
-            let beforeLast = str[str.startIndex..<lastPipe]
+            let beforeLast = str[str.startIndex ..< lastPipe]
             guard let secondPipe = beforeLast.lastIndex(of: "|") else { return nil }
 
-            let rawName = String(str[str.startIndex..<secondPipe])
-            let xStr = str[str.index(after: secondPipe)..<lastPipe]
+            let rawName = String(str[str.startIndex ..< secondPipe])
+            let xStr = str[str.index(after: secondPipe) ..< lastPipe]
             let yStr = str[str.index(after: lastPipe)...]
 
             guard let x = Int(xStr.trimmingCharacters(in: .whitespaces)),
                   let y = Int(yStr.trimmingCharacters(in: .whitespaces)),
-                  !rawName.isEmpty else {
+                  !rawName.isEmpty
+            else {
                 return nil
             }
             return IconPosition(name: unescapeIconName(rawName), x: x, y: y)
@@ -340,7 +341,7 @@ final class FinderService {
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
-        if !escaped.contains("\n") && !escaped.contains("\r") {
+        if !escaped.contains("\n"), !escaped.contains("\r") {
             return "\"\(escaped)\""
         }
 

@@ -1,6 +1,6 @@
-import SwiftUI
 import AppKit
 import Darwin
+import SwiftUI
 
 /// Generates template images for the menu bar icon
 enum MenuBarIcon {
@@ -49,8 +49,12 @@ enum MenuBarIcon {
             for (dx, dy) in [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
                 let rx = cx + dx * offset - rectSize / 2
                 let ry = cy + dy * offset - rectSize / 2
-                let path = CGPath(roundedRect: CGRect(x: rx, y: ry, width: rectSize, height: rectSize),
-                                  cornerWidth: cornerR, cornerHeight: cornerR, transform: nil)
+                let path = CGPath(
+                    roundedRect: CGRect(x: rx, y: ry, width: rectSize, height: rectSize),
+                    cornerWidth: cornerR,
+                    cornerHeight: cornerR,
+                    transform: nil
+                )
                 ctx.addPath(path)
                 ctx.fillPath()
             }

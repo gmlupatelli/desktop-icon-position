@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 // MARK: - Modal Panel Helper (handles keyboard input in LSUIElement apps)
 
@@ -8,12 +8,14 @@ import AppKit
 private final class SaveDialogHandler: NSObject {
     var didSave = false
 
-    @objc func save(_ sender: Any?) {
+    @objc
+    func save(_: Any?) {
         didSave = true
         NSApp.stopModal()
     }
 
-    @objc func cancel(_ sender: Any?) {
+    @objc
+    func cancel(_: Any?) {
         didSave = false
         NSApp.stopModal()
     }
@@ -143,13 +145,13 @@ struct MenuBarView: View {
         let saveButton = NSButton(title: "Save", target: handler, action: #selector(SaveDialogHandler.save(_:)))
         saveButton.frame = NSRect(x: 210, y: 16, width: 90, height: 32)
         saveButton.bezelStyle = .rounded
-        saveButton.keyEquivalent = "\r"  // Enter key triggers Save
+        saveButton.keyEquivalent = "\r" // Enter key triggers Save
         contentView.addSubview(saveButton)
 
         let cancelButton = NSButton(title: "Cancel", target: handler, action: #selector(SaveDialogHandler.cancel(_:)))
         cancelButton.frame = NSRect(x: 110, y: 16, width: 90, height: 32)
         cancelButton.bezelStyle = .rounded
-        cancelButton.keyEquivalent = "\u{1b}"  // Escape key triggers Cancel
+        cancelButton.keyEquivalent = "\u{1b}" // Escape key triggers Cancel
         contentView.addSubview(cancelButton)
 
         panel.contentView = contentView
@@ -170,7 +172,7 @@ struct MenuBarView: View {
         // Switch back to accessory (menu bar only, no dock icon)
         NSApp.setActivationPolicy(.accessory)
 
-        if handler.didSave && !name.isEmpty {
+        if handler.didSave, !name.isEmpty {
             viewModel.save(name: name)
         }
     }
@@ -226,7 +228,7 @@ struct MenuBarView: View {
         panel.orderOut(nil)
         NSApp.setActivationPolicy(.accessory)
 
-        if handler.didSave && !newName.isEmpty && newName != oldName {
+        if handler.didSave, !newName.isEmpty, newName != oldName {
             viewModel.renameProfile(from: oldName, to: newName)
         }
     }

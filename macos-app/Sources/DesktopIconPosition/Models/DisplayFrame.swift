@@ -1,7 +1,7 @@
 import Foundation
 
 /// A display rectangle in Quartz/CG coordinates (top-left origin, Y increases downward).
-struct DisplayFrame: Codable, Hashable, Sendable {
+struct DisplayFrame: Codable, Hashable {
     let x: Int
     let y: Int
     let width: Int

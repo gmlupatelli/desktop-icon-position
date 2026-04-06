@@ -4,7 +4,6 @@ import SwiftUI
 // MARK: - Utility Actions
 
 extension AppViewModel {
-
     /// Reveal the app in Finder so the user can drag it to /Applications.
     func revealAppInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting(
@@ -15,7 +14,8 @@ extension AppViewModel {
     /// Open the bundled license text for the installed app.
     func openBundledLicense() {
         guard let url = Bundle.main.resourceURL?.appendingPathComponent("LICENSE.txt"),
-              FileManager.default.fileExists(atPath: url.path) else {
+              FileManager.default.fileExists(atPath: url.path)
+        else {
             statusMessage = "Bundled license not found"
             return
         }
@@ -74,7 +74,6 @@ extension AppViewModel {
 // MARK: - Permission Helpers
 
 extension AppViewModel {
-
     /// Re-check Automation permission (e.g. after user grants access in System Settings).
     func recheckPermission() {
         let wasGranted = permissionGranted
@@ -119,7 +118,7 @@ extension AppViewModel {
     func applyAutomationActions(_ actions: [AutomationCoordinator.Action]) {
         for action in actions {
             switch action {
-            case .setStatusMessage(let message):
+            case let .setStatusMessage(message):
                 statusMessage = message
             case .restoreAuto:
                 restoreAuto()

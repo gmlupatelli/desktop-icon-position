@@ -1,15 +1,14 @@
 import AppKit
-import SwiftUI
-import Observation
 import Foundation
+import Observation
 import ServiceManagement
+import SwiftUI
 
 /// Central state and logic for the menu bar app.
 /// Orchestrates save, restore, and display-change monitoring.
 @MainActor
 @Observable
 final class AppViewModel {
-
     // MARK: - Published State
 
     var profiles: [ProfileManager.ProfileSummary] = []
@@ -31,7 +30,7 @@ final class AppViewModel {
             guard !isUpdatingLaunchAtLogin else { return }
             isUpdatingLaunchAtLogin = true
             defer { isUpdatingLaunchAtLogin = false }
-            if launchAtLogin && !isStableLocation {
+            if launchAtLogin, !isStableLocation {
                 statusMessage = "Move app to /Applications for reliable Launch at Login"
                 launchAtLogin = false
                 return
@@ -49,12 +48,15 @@ final class AppViewModel {
             }
         }
     }
+
     var autoRestoreEnabled: Bool = UserDefaults.standard.bool(forKey: "autoRestoreEnabled") {
         didSet { UserDefaults.standard.set(autoRestoreEnabled, forKey: "autoRestoreEnabled") }
     }
+
     var autoRestoreOnLaunch: Bool = UserDefaults.standard.bool(forKey: "autoRestoreOnLaunch") {
         didSet { UserDefaults.standard.set(autoRestoreOnLaunch, forKey: "autoRestoreOnLaunch") }
     }
+
     var showAutoProfiles: Bool = UserDefaults.standard.bool(forKey: "showAutoProfiles") {
         didSet { UserDefaults.standard.set(showAutoProfiles, forKey: "showAutoProfiles") }
     }
@@ -62,12 +64,14 @@ final class AppViewModel {
     var autoSaveOnQuit: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnQuit") {
         didSet { UserDefaults.standard.set(autoSaveOnQuit, forKey: "autoSaveOnQuit") }
     }
+
     var autoSaveOnTimer: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnTimer") {
         didSet {
             UserDefaults.standard.set(autoSaveOnTimer, forKey: "autoSaveOnTimer")
             if autoSaveOnTimer { startAutoSaveTimer() } else { stopAutoSaveTimer() }
         }
     }
+
     /// Auto-save interval in minutes. Options: 5, 10, 15, 30, 60.
     var autoSaveIntervalMinutes: Int = {
         let stored = UserDefaults.standard.integer(forKey: "autoSaveIntervalMinutes")
@@ -104,7 +108,7 @@ final class AppViewModel {
     // MARK: - Lifecycle
 
     func start() {
-        if launchAtLogin && !isStableLocation {
+        if launchAtLogin, !isStableLocation {
             statusMessage = "Launch at Login disabled — move app to /Applications for reliable startup"
             launchAtLogin = false
         }
@@ -260,7 +264,7 @@ final class AppViewModel {
 
     /// Core restore logic. Accepts a pre-loaded profile to avoid redundant disk reads
     /// (e.g. when restoreAuto already loaded the profile via findAutoProfile).
-    private func restore(name: String, profile: Profile) {
+    private func restore(name _: String, profile: Profile) {
         isRestoring = true
         let restoreStart = CFAbsoluteTimeGetCurrent()
         do {
@@ -269,7 +273,7 @@ final class AppViewModel {
 
             // Determine if coordinate conversion is needed
             var icons = profile.icons
-            if profile.displays != currentDisplays.map({ $0 }) && !profile.displays.isEmpty {
+            if profile.displays != currentDisplays.map(\.self), !profile.displays.isEmpty {
                 icons = TimingLog.measure("restore: remap") {
                     CoordinateConverter.remap(
                         icons: icons,
@@ -296,7 +300,7 @@ final class AppViewModel {
             verifyTask?.cancel()
             verifyTask = Task { @MainActor [weak self] in
                 defer { self?.isRestoring = false }
-                let verifyDelays: [Double] = [0.5, 1.0, 1.5]  // cumulative: 0.5s, 1.5s, 3.0s
+                let verifyDelays: [Double] = [0.5, 1.0, 1.5] // cumulative: 0.5s, 1.5s, 3.0s
                 var totalCorrected = 0
                 for (attempt, delay) in verifyDelays.enumerated() {
                     try? await Task.sleep(for: .seconds(delay))

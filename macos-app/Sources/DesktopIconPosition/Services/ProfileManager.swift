@@ -11,12 +11,12 @@ enum ProfileError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .profileNotFound(let name): return "Profile \"\(name)\" not found"
-        case .profileAlreadyExists(let name): return "Profile \"\(name)\" already exists"
-        case .parseError(let msg): return "Profile parse error: \(msg)"
-        case .directoryError(let msg): return "Profile directory error: \(msg)"
-        case .invalidProfileName(let msg): return "Invalid profile name: \(msg)"
-        case .cannotRenameAutoProfile: return "Auto-profiles cannot be renamed"
+        case let .profileNotFound(name): "Profile \"\(name)\" not found"
+        case let .profileAlreadyExists(name): "Profile \"\(name)\" already exists"
+        case let .parseError(msg): "Profile parse error: \(msg)"
+        case let .directoryError(msg): "Profile directory error: \(msg)"
+        case let .invalidProfileName(msg): "Invalid profile name: \(msg)"
+        case .cannotRenameAutoProfile: "Auto-profiles cannot be renamed"
         }
     }
 }
@@ -24,8 +24,7 @@ enum ProfileError: LocalizedError {
 /// Manages profile storage in ~/.desktop_icon_profiles/.
 /// Reads both pipe-delimited (.txt) and JSON (.json) formats.
 /// Always writes JSON (.json).
-final class ProfileManager {
-
+enum ProfileManager {
     /// Shared profile directory (same as shell script).
     static let profileDirectory: URL = {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -60,12 +59,12 @@ final class ProfileManager {
 
     /// Summary info for displaying in menus.
     struct ProfileSummary: Identifiable {
-        let id: String  // profile name
+        let id: String // profile name
         let name: String
         let iconCount: Int
         let displayCount: Int
         let fingerprint: String
-        let format: String  // "json" or "txt"
+        let format: String // "json" or "txt"
     }
 
     /// List all saved profiles (both .json and .txt).
@@ -266,7 +265,8 @@ final class ProfileManager {
                 let parts = String(trimmed.dropFirst("#DISPLAY|".count)).split(separator: "|")
                 if parts.count == 4,
                    let x = Int(parts[0]), let y = Int(parts[1]),
-                   let w = Int(parts[2]), let h = Int(parts[3]) {
+                   let w = Int(parts[2]), let h = Int(parts[3])
+                {
                     displays.append(DisplayFrame(x: x, y: y, width: w, height: h))
                 }
             } else if trimmed.hasPrefix("#SETTINGS|") {
@@ -275,20 +275,21 @@ final class ProfileManager {
                     settings = DesktopSettings(iconSize: iSize, textSize: tSize)
                 }
             } else if trimmed.hasPrefix("#") {
-                continue  // skip unknown metadata
+                continue // skip unknown metadata
             } else {
                 // Icon line: name|x|y — parse from right to handle | in names
                 guard let lastPipe = trimmed.lastIndex(of: "|") else { continue }
-                let beforeLast = trimmed[trimmed.startIndex..<lastPipe]
+                let beforeLast = trimmed[trimmed.startIndex ..< lastPipe]
                 guard let secondPipe = beforeLast.lastIndex(of: "|") else { continue }
 
-                let name = String(trimmed[trimmed.startIndex..<secondPipe])
-                let xStr = trimmed[trimmed.index(after: secondPipe)..<lastPipe]
+                let name = String(trimmed[trimmed.startIndex ..< secondPipe])
+                let xStr = trimmed[trimmed.index(after: secondPipe) ..< lastPipe]
                 let yStr = trimmed[trimmed.index(after: lastPipe)...]
 
                 if let x = Int(xStr.trimmingCharacters(in: .whitespaces)),
                    let y = Int(yStr.trimmingCharacters(in: .whitespaces)),
-                   !name.isEmpty {
+                   !name.isEmpty
+                {
                     icons.append(IconPosition(name: name, x: x, y: y))
                 }
             }
@@ -307,8 +308,8 @@ final class ProfileManager {
 
 // MARK: - JSONEncoder extension
 
-private extension JSONEncoder {
-    static let prettyEncoder: JSONEncoder = {
+extension JSONEncoder {
+    fileprivate static let prettyEncoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return encoder

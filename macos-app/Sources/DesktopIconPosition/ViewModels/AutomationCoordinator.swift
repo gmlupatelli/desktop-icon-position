@@ -49,7 +49,7 @@ struct AutomationCoordinator {
     ) -> [Action] {
         var actions: [Action] = []
 
-        if runLaunchActions && autoRestoreOnLaunch {
+        if runLaunchActions, autoRestoreOnLaunch {
             actions.append(.restoreAuto)
         }
 

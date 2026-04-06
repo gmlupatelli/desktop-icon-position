@@ -1,10 +1,8 @@
-import Testing
-import Foundation
 @testable import DesktopIconPosition
+import Foundation
+import Testing
 
-@Suite("ProfileManager")
 struct ProfileManagerTests {
-
     @Test("profile survives JSON encode-decode round trip")
     func jsonRoundTrip() throws {
         let profile = Profile(
@@ -38,7 +36,9 @@ struct ProfileManagerTests {
         let name = ProfileManager.autoProfileName(fingerprint: "566459849ad08e7084399efd0414acb8")
         #expect(name == "Auto-56645984")
     }
-    @Test func autoProfileNameWithDisplayNames() {
+
+    @Test
+    func autoProfileNameWithDisplayNames() {
         let name = ProfileManager.autoProfileName(
             fingerprint: "566459849ad08e7084399efd0414acb8",
             displayNames: ["Built-in Retina Display", "DELL U2720Q"]

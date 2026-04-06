@@ -78,7 +78,7 @@ enum FinderSmokeTestRunner {
     private static func waitForIcons(named names: [String], attempts: Int = 15) async throws -> [String: IconPosition] {
         var lastMap: [String: IconPosition] = [:]
 
-        for _ in 0..<attempts {
+        for _ in 0 ..< attempts {
             let icons = try FinderService.readIconPositions()
             lastMap = Dictionary(icons.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
 
@@ -100,9 +100,9 @@ private enum SmokeTestError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .fixtureCreateFailed(let name):
+        case let .fixtureCreateFailed(name):
             return "Unable to create smoke-test fixture \"\(name)\""
-        case .missingIcons(let names):
+        case let .missingIcons(names):
             let formatted = names.map(\.debugDescription).joined(separator: ", ")
             return "Finder did not surface expected desktop items: \(formatted)"
         }

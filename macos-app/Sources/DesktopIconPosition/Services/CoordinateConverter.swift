@@ -101,13 +101,15 @@ enum CoordinateConverter {
     /// Algorithm:
     /// 1. Match saved displays to current displays by geometry overlap/proximity
     /// 2. Icons on matched displays: remap relative position to matched current display
-    /// 3. Icons displaced (source display mapped to a different display): park at bottom
-    ///    of the target display in a grid, leaving existing icons untouched
+    /// 3. Icons displaced (source display mapped to a different display): park in
+    ///    the configured zone of the target display, avoiding occupied positions
     /// 4. Clamp all positions with 20px padding
     static func remap(
         icons: [IconPosition],
         from savedDisplays: [DisplayFrame],
-        to currentDisplays: [DisplayFrame]
+        to currentDisplays: [DisplayFrame],
+        parkingZone: ParkingZone = .bottomRight,
+        iconSize: Int = 60
     ) -> [IconPosition] {
         guard !currentDisplays.isEmpty, !savedDisplays.isEmpty else {
             return icons
@@ -131,7 +133,7 @@ enum CoordinateConverter {
             }
         }
 
-        // Separate icons into native (remap normally) and displaced (park at bottom)
+        // Separate icons into native (remap normally) and displaced (park in zone)
         var result: [IconPosition] = []
         // displaced icons grouped by target current display index
         var displacedByTarget: [Int: [IconPosition]] = [:]
@@ -155,34 +157,152 @@ enum CoordinateConverter {
 
                 result.append(IconPosition(name: icon.name, x: newX, y: newY))
             } else {
-                // Displaced: queue for parking at bottom of target display
+                // Displaced: queue for parking in configured zone
                 displacedByTarget[targetIdx, default: []].append(icon)
             }
         }
 
-        // Park displaced icons at the bottom of their target display in a grid
-        let gridSpacing = 100 // spacing between parked icons
-
+        // Park displaced icons using the shared parking logic
         for (targetIdx, displaced) in displacedByTarget {
             let target = currentDisplays[targetIdx]
-            let cols = max(1, (target.width - 2 * pad) / gridSpacing)
-
-            for (i, icon) in displaced.enumerated() {
-                let col = i % cols
-                let row = i / cols
-
-                // Start from bottom-right, fill leftward and upward
-                let newX = target.x + target.width - pad - (col + 1) * gridSpacing + gridSpacing / 2
-                let newY = target.y + target.height - pad - (row + 1) * gridSpacing + gridSpacing / 2
-
-                // Clamp within bounds
-                let clampedX = max(target.x + pad, min(newX, target.x + target.width - pad))
-                let clampedY = max(target.y + pad, min(newY, target.y + target.height - pad))
-
-                result.append(IconPosition(name: icon.name, x: clampedX, y: clampedY))
-            }
+            let parked = parkIcons(displaced, in: parkingZone, on: target, iconSize: iconSize, avoiding: result)
+            result.append(contentsOf: parked)
         }
 
         return result
+    }
+
+    /// Park icons in a grid starting from the specified zone corner, skipping
+    /// grid slots already occupied by icons in ``avoiding``.
+    ///
+    /// - Parameters:
+    ///   - icons: Icons to assign parking positions.
+    ///   - zone: Corner of the display to start filling from.
+    ///   - display: Target display frame.
+    ///   - iconSize: Finder icon size; grid spacing is derived as `iconSize + 40`.
+    ///   - avoiding: Icons whose positions define occupied grid slots to skip.
+    /// - Returns: The input icons with new parking positions assigned.
+    static func parkIcons(
+        _ icons: [IconPosition],
+        in zone: ParkingZone,
+        on display: DisplayFrame,
+        iconSize: Int,
+        avoiding: [IconPosition]
+    ) -> [IconPosition] {
+        guard !icons.isEmpty else { return [] }
+
+        let pad = 20
+        let gridSpacing = max(iconSize + 40, 60)
+        let cols = max(1, (display.width - 2 * pad) / gridSpacing)
+        let rows = max(1, (display.height - 2 * pad) / gridSpacing)
+
+        // Build set of occupied grid slots from the icons to avoid
+        let occupiedSlots = gridSlots(for: avoiding, in: zone, on: display, gridSpacing: gridSpacing, pad: pad)
+
+        var result: [IconPosition] = []
+        var slotIndex = 0
+
+        for icon in icons {
+            // Find next unoccupied slot
+            var col: Int
+            var row: Int
+            repeat {
+                col = slotIndex % cols
+                row = slotIndex / cols
+                slotIndex += 1
+                if row >= rows {
+                    // Ran out of grid space — just use the last valid row
+                    row = rows - 1
+                    break
+                }
+            } while occupiedSlots.contains(row * cols + col)
+
+            let (x, y) = gridPosition(
+                col: col, row: row, cols: cols,
+                zone: zone, display: display,
+                gridSpacing: gridSpacing, pad: pad
+            )
+
+            result.append(IconPosition(name: icon.name, x: x, y: y))
+        }
+
+        return result
+    }
+
+    // MARK: - Grid Helpers
+
+    /// Compute the pixel position for a grid slot based on the parking zone.
+    private static func gridPosition(
+        col: Int, row: Int, cols _: Int,
+        zone: ParkingZone, display: DisplayFrame,
+        gridSpacing: Int, pad: Int
+    ) -> (x: Int, y: Int) {
+        let rawX: Int
+        let rawY: Int
+
+        switch zone {
+        case .topLeft:
+            // Fill right then down from top-left
+            rawX = display.x + pad + col * gridSpacing + gridSpacing / 2
+            rawY = display.y + pad + row * gridSpacing + gridSpacing / 2
+        case .topRight:
+            // Fill left then down from top-right
+            rawX = display.x + display.width - pad - (col + 1) * gridSpacing + gridSpacing / 2
+            rawY = display.y + pad + row * gridSpacing + gridSpacing / 2
+        case .bottomLeft:
+            // Fill right then up from bottom-left
+            rawX = display.x + pad + col * gridSpacing + gridSpacing / 2
+            rawY = display.y + display.height - pad - (row + 1) * gridSpacing + gridSpacing / 2
+        case .bottomRight:
+            // Fill left then up from bottom-right
+            rawX = display.x + display.width - pad - (col + 1) * gridSpacing + gridSpacing / 2
+            rawY = display.y + display.height - pad - (row + 1) * gridSpacing + gridSpacing / 2
+        }
+
+        let clampedX = max(display.x + pad, min(rawX, display.x + display.width - pad))
+        let clampedY = max(display.y + pad, min(rawY, display.y + display.height - pad))
+        return (clampedX, clampedY)
+    }
+
+    /// Map icon positions to grid slot indices so we can skip occupied slots.
+    /// Slot numbering matches the fill order of the given parking zone.
+    private static func gridSlots(
+        for icons: [IconPosition],
+        in zone: ParkingZone,
+        on display: DisplayFrame,
+        gridSpacing: Int,
+        pad: Int
+    ) -> Set<Int> {
+        let cols = max(1, (display.width - 2 * pad) / gridSpacing)
+        let rows = max(1, (display.height - 2 * pad) / gridSpacing)
+        var slots: Set<Int> = []
+        for icon in icons {
+            guard display.contains(px: icon.x, py: icon.y) else { continue }
+
+            // Convert to absolute top-left grid col/row first
+            let absCol = max(0, min((icon.x - display.x - pad) / gridSpacing, cols - 1))
+            let absRow = max(0, min((icon.y - display.y - pad) / gridSpacing, rows - 1))
+
+            // Convert to zone-relative col/row
+            let col: Int
+            let row: Int
+            switch zone {
+            case .topLeft:
+                col = absCol
+                row = absRow
+            case .topRight:
+                col = (cols - 1) - absCol
+                row = absRow
+            case .bottomLeft:
+                col = absCol
+                row = (rows - 1) - absRow
+            case .bottomRight:
+                col = (cols - 1) - absCol
+                row = (rows - 1) - absRow
+            }
+
+            slots.insert(row * cols + col)
+        }
+        return slots
     }
 }

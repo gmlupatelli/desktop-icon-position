@@ -279,4 +279,155 @@ struct CoordinateConverterTests {
         #expect(result[0].x == 120)
         #expect(result[0].y == 120)
     }
+
+    // MARK: - parkIcons: zone directions
+
+    @Test("parkIcons bottomRight fills left then up")
+    func parkIconsBottomRight() {
+        let display = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        let icons = [
+            IconPosition(name: "a.txt", x: 0, y: 0),
+            IconPosition(name: "b.txt", x: 0, y: 0),
+        ]
+        let result = CoordinateConverter.parkIcons(
+            icons, in: .bottomRight, on: display, iconSize: 60, avoiding: []
+        )
+        // First icon should be rightmost, second to its left
+        #expect(result[0].x > result[1].x)
+        // Both near the bottom
+        #expect(result[0].y > 800)
+        #expect(result[1].y > 800)
+        // Same row
+        #expect(result[0].y == result[1].y)
+    }
+
+    @Test("parkIcons topLeft fills right then down")
+    func parkIconsTopLeft() {
+        let display = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        let icons = [
+            IconPosition(name: "a.txt", x: 0, y: 0),
+            IconPosition(name: "b.txt", x: 0, y: 0),
+        ]
+        let result = CoordinateConverter.parkIcons(
+            icons, in: .topLeft, on: display, iconSize: 60, avoiding: []
+        )
+        // First icon should be leftmost, second to its right
+        #expect(result[0].x < result[1].x)
+        // Both near the top
+        #expect(result[0].y < 200)
+        #expect(result[1].y < 200)
+        // Same row
+        #expect(result[0].y == result[1].y)
+    }
+
+    @Test("parkIcons topRight fills left then down")
+    func parkIconsTopRight() {
+        let display = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        let icons = [
+            IconPosition(name: "a.txt", x: 0, y: 0),
+            IconPosition(name: "b.txt", x: 0, y: 0),
+        ]
+        let result = CoordinateConverter.parkIcons(
+            icons, in: .topRight, on: display, iconSize: 60, avoiding: []
+        )
+        // First icon rightmost, second to its left
+        #expect(result[0].x > result[1].x)
+        // Both near the top
+        #expect(result[0].y < 200)
+        #expect(result[1].y < 200)
+    }
+
+    @Test("parkIcons bottomLeft fills right then up")
+    func parkIconsBottomLeft() {
+        let display = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        let icons = [
+            IconPosition(name: "a.txt", x: 0, y: 0),
+            IconPosition(name: "b.txt", x: 0, y: 0),
+        ]
+        let result = CoordinateConverter.parkIcons(
+            icons, in: .bottomLeft, on: display, iconSize: 60, avoiding: []
+        )
+        // First icon leftmost, second to its right
+        #expect(result[0].x < result[1].x)
+        // Both near the bottom
+        #expect(result[0].y > 800)
+        #expect(result[1].y > 800)
+    }
+
+    // MARK: - parkIcons: slot avoidance
+
+    @Test("parkIcons skips grid slots occupied by profile icons")
+    func parkIconsSlotAvoidance() {
+        let display = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        // Place a profile icon exactly at the first bottom-right grid slot
+        // With iconSize=60, gridSpacing=100, first slot bottomRight:
+        // x = 1920 - 20 - 100 + 50 = 1850, y = 1080 - 20 - 100 + 50 = 1010
+        let occupier = IconPosition(name: "profile.txt", x: 1850, y: 1010)
+        let icons = [IconPosition(name: "new.txt", x: 0, y: 0)]
+
+        let result = CoordinateConverter.parkIcons(
+            icons, in: .bottomRight, on: display, iconSize: 60, avoiding: [occupier]
+        )
+        // The parked icon should NOT be at the occupied slot's position
+        #expect(result[0].x != 1850 || result[0].y != 1010)
+        // It should still be near the bottom-right area
+        #expect(result[0].y > 800)
+    }
+
+    // MARK: - parkIcons: dynamic spacing from icon size
+
+    @Test("parkIcons spacing increases with larger icon size")
+    func parkIconsDynamicSpacing() {
+        let display = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        let icons = [
+            IconPosition(name: "a.txt", x: 0, y: 0),
+            IconPosition(name: "b.txt", x: 0, y: 0),
+        ]
+        let smallResult = CoordinateConverter.parkIcons(
+            icons, in: .bottomRight, on: display, iconSize: 40, avoiding: []
+        )
+        let largeResult = CoordinateConverter.parkIcons(
+            icons, in: .bottomRight, on: display, iconSize: 120, avoiding: []
+        )
+        // Larger icon size → larger spacing between icons
+        let smallGap = abs(smallResult[0].x - smallResult[1].x)
+        let largeGap = abs(largeResult[0].x - largeResult[1].x)
+        #expect(largeGap > smallGap)
+    }
+
+    // MARK: - parkIcons: empty input
+
+    @Test("parkIcons with empty input returns empty")
+    func parkIconsEmpty() {
+        let display = DisplayFrame(x: 0, y: 0, width: 1920, height: 1080)
+        let result = CoordinateConverter.parkIcons(
+            [], in: .bottomRight, on: display, iconSize: 60, avoiding: []
+        )
+        #expect(result.isEmpty)
+    }
+
+    // MARK: - remap: parking zone parameter
+
+    @Test("remap uses specified parking zone for displaced icons")
+    func remapWithParkingZone() {
+        let saved = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
+            DisplayFrame(x: 1792, y: 0, width: 1920, height: 1080),
+        ]
+        let current = [
+            DisplayFrame(x: 0, y: 0, width: 1792, height: 1120),
+        ]
+        let icons = [IconPosition(name: "file.txt", x: 1900, y: 50)]
+
+        let bottomRight = CoordinateConverter.remap(
+            icons: icons, from: saved, to: current, parkingZone: .bottomRight, iconSize: 60
+        )
+        let topLeft = CoordinateConverter.remap(
+            icons: icons, from: saved, to: current, parkingZone: .topLeft, iconSize: 60
+        )
+
+        // bottomRight parks near bottom, topLeft parks near top
+        #expect(bottomRight[0].y > 800)
+        #expect(topLeft[0].y < 200)
+    }
 }

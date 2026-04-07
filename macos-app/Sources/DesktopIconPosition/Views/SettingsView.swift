@@ -81,6 +81,30 @@ private struct GeneralSettingsView: View {
             Divider()
 
             settingsSection(
+                title: "Unmapped Icons",
+                footer: "When restoring a profile, icons not in the profile are moved to the selected zone to prevent overlap."
+            ) {
+                Toggle("Park unmapped icons during restore", isOn: $viewModel.parkUnmappedIcons)
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Parking zone")
+                    Spacer(minLength: 12)
+                    Picker("Parking zone", selection: $viewModel.unmappedIconParkingZone) {
+                        ForEach(ParkingZone.allCases, id: \.self) { zone in
+                            Text(zone.displayName).tag(zone)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 160)
+                }
+                .disabled(!viewModel.parkUnmappedIcons)
+                .opacity(viewModel.parkUnmappedIcons ? 1.0 : 0.55)
+            }
+
+            Divider()
+
+            settingsSection(
                 title: "Profiles",
                 footer: "Auto-generated profiles are matched to the current display configuration."
             ) {

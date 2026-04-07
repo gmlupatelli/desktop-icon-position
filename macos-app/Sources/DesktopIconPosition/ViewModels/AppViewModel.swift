@@ -61,6 +61,21 @@ final class AppViewModel {
         didSet { UserDefaults.standard.set(showAutoProfiles, forKey: "showAutoProfiles") }
     }
 
+    var parkUnmappedIcons: Bool = {
+        let key = "parkUnmappedIcons"
+        if UserDefaults.standard.object(forKey: key) == nil { return true }
+        return UserDefaults.standard.bool(forKey: key)
+    }() {
+        didSet { UserDefaults.standard.set(parkUnmappedIcons, forKey: "parkUnmappedIcons") }
+    }
+
+    var unmappedIconParkingZone: ParkingZone = {
+        let raw = UserDefaults.standard.string(forKey: "unmappedIconParkingZone") ?? ""
+        return ParkingZone(rawValue: raw) ?? .bottomRight
+    }() {
+        didSet { UserDefaults.standard.set(unmappedIconParkingZone.rawValue, forKey: "unmappedIconParkingZone") }
+    }
+
     var autoSaveOnQuit: Bool = UserDefaults.standard.bool(forKey: "autoSaveOnQuit") {
         didSet { UserDefaults.standard.set(autoSaveOnQuit, forKey: "autoSaveOnQuit") }
     }
@@ -278,8 +293,31 @@ final class AppViewModel {
                     CoordinateConverter.remap(
                         icons: icons,
                         from: profile.displays,
-                        to: currentDisplays
+                        to: currentDisplays,
+                        parkingZone: unmappedIconParkingZone,
+                        iconSize: profile.settings.iconSize
                     )
+                }
+            }
+
+            // Park unmapped icons (on desktop but not in profile) to prevent overlap
+            if parkUnmappedIcons, let primaryDisplay = currentDisplays.first {
+                let profileNames = Set(profile.icons.map(\.name))
+                let currentIcons = try TimingLog.measure("restore: readCurrentIcons") {
+                    try FinderService.readIconPositions()
+                }
+                let unmapped = currentIcons.filter { !profileNames.contains($0.name) }
+                if !unmapped.isEmpty {
+                    let parked = TimingLog.measure("restore: parkUnmapped") {
+                        CoordinateConverter.parkIcons(
+                            unmapped,
+                            in: unmappedIconParkingZone,
+                            on: primaryDisplay,
+                            iconSize: profile.settings.iconSize,
+                            avoiding: icons
+                        )
+                    }
+                    icons.append(contentsOf: parked)
                 }
             }
 

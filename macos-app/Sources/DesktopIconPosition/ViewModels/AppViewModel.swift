@@ -208,6 +208,10 @@ final class AppViewModel {
         let names = DisplayService.displayNames()
         let name = ProfileManager.autoProfileName(fingerprint: fp, displayNames: names)
         save(name: name, allowReservedAutoName: true)
+        if statusMessage.hasPrefix("Saved") {
+            let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+            statusMessage = "Autosaved at \(time)"
+        }
     }
 
     /// Update an existing profile with current icon positions.
@@ -257,6 +261,8 @@ final class AppViewModel {
             )
             try ProfileManager.saveProfile(profile, name: name, allowReservedAutoName: true)
             refreshProfiles()
+            let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+            statusMessage = "Autosaved at \(time)"
         } catch {
             if FinderService.isPermissionError(error) {
                 handleFinderError(error, action: "Auto-save")

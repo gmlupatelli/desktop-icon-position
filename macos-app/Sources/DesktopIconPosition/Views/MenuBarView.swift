@@ -54,7 +54,10 @@ struct MenuBarView: View {
         if !viewModel.visibleProfiles.isEmpty {
             Menu("Update Profile") {
                 ForEach(viewModel.visibleProfiles) { profile in
-                    Button(profile.name) {
+                    let displaySuffix = profile.displayCount == 1 ? "" : "s"
+                    let label = "\(profile.name) (\(profile.iconCount) icons, "
+                        + "\(profile.displayCount) display\(displaySuffix))"
+                    Button(label) {
                         viewModel.updateProfile(name: profile.name)
                     }
                 }
@@ -94,7 +97,10 @@ struct MenuBarView: View {
                 }
                 Menu("Delete") {
                     ForEach(viewModel.visibleProfiles) { profile in
-                        Button(profile.name, role: .destructive) {
+                        let displaySuffix = profile.displayCount == 1 ? "" : "s"
+                        let label = "\(profile.name) (\(profile.iconCount) icons, "
+                            + "\(profile.displayCount) display\(displaySuffix))"
+                        Button(label, role: .destructive) {
                             confirmAndDelete(name: profile.name)
                         }
                     }

@@ -90,7 +90,10 @@ struct MenuBarView: View {
             Menu("Manage Profiles") {
                 Menu("Rename") {
                     ForEach(viewModel.visibleProfiles.filter { !$0.name.hasPrefix("Auto-") }) { profile in
-                        Button(profile.name) {
+                        let displaySuffix = profile.displayCount == 1 ? "" : "s"
+                        let label = "\(profile.name) (\(profile.iconCount) icons, "
+                            + "\(profile.displayCount) display\(displaySuffix))"
+                        Button(label) {
                             promptAndRename(oldName: profile.name)
                         }
                     }

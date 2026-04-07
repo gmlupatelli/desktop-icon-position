@@ -1,6 +1,6 @@
 # Architecture
 
-Technical details of the Desktop Icon Position Manager — both the macOS app and the legacy shell script.
+Technical details of the Desktop Icon Position Manager macOS app.
 
 ## Project Structure
 
@@ -15,6 +15,7 @@ desktop-icon-position/
 │   │   ├── Info.plist                 # Bundle config (LSUIElement, permissions)
 │   │   ├── DesktopIconPosition.entitlements  # Code signing entitlements
 │   │   ├── AppIcon.svg                # Source app icon (1024x1024)
+│   │   ├── AppIcon.icns               # Generated icon set (via generate-icns.swift)
 │   │   └── MenuBarIcon.svg            # Source menu bar icon
 │   ├── Sources/DesktopIconPosition/
 │   │   ├── App.swift                  # @main, MenuBarExtra, CLI flags
@@ -32,6 +33,7 @@ desktop-icon-position/
 │   │   │   └── TimingLog.swift                # Lightweight timing instrumentation
 │   │   ├── ViewModels/
 │   │   │   ├── AppViewModel.swift             # @Observable state, orchestrates all operations
+│   │   │   ├── AppViewModel+Utilities.swift   # Settings window, permissions, license helpers
 │   │   │   └── AutomationCoordinator.swift    # Pure decision layer for automation flows
 │   │   └── Views/
 │   │       ├── MenuBarView.swift      # SwiftUI menu content + NSPanel dialogs
@@ -42,9 +44,9 @@ desktop-icon-position/
 │       ├── DisplayServiceTests.swift
 │       ├── FinderServiceTests.swift
 │       └── ProfileManagerTests.swift
-├── legacy-desktop-icons-script/
-│   ├── README.md                      # Script-specific docs
-│   └── desktop_icons.sh               # Legacy shell script
+├── legacy-desktop-icons-script/           # Legacy shell script (has its own README)
+│   ├── README.md
+│   └── desktop_icons.sh
 ├── scripts/
 │   ├── build-app.sh                   # Build .app bundle + DMG
 │   ├── generate-dmg-assets.swift      # DMG background + layout generation
@@ -73,10 +75,10 @@ Display Change Notification                   App Launch
        ▼                                           ▼
 AppViewModel.handleDisplayChange()            AppViewModel.start()
        │                                           │
-       │                                           ├─ FinderService.checkPermission()
-       │                                           │
-       ├─ AutomationCoordinator                    ├─ AutomationCoordinator
-       │   .planDisplayChange()                    │   .planResumeAfterPermissionGranted()
+       ▼                                           ├─ FinderService.checkPermission()
+scheduleDisplayChange()  [debounce]                │
+       │                                           ├─ AutomationCoordinator
+       ├─ AutomationCoordinator                    │   .planResumeAfterPermissionGranted()
        │                                           │
        ├─ permissionGranted?                       ├─ autoRestoreOnLaunch?
        │  └─ no → skip (UI shows recovery)         │  → issue .restoreAuto action
@@ -198,36 +200,30 @@ Icon on External at (2000, 50) → parked at (1572, 1000)    [displaced, grid sl
 
 ## Display Geometry Detection
 
-- **App:** Uses `NSScreen.screens` directly from Swift
-- **Script:** Uses JXA (JavaScript for Automation) via `osascript -l JavaScript`
-- Both read `NSScreen` frames in Cocoa coordinates (bottom-left origin, Y up)
-- Both convert to Quartz/CG coordinates (top-left origin, Y down) to match Finder
+- Uses `NSScreen.screens` directly from Swift
+- Reads `NSScreen` frames in Cocoa coordinates (bottom-left origin, Y up)
+- Converts to Quartz/CG coordinates (top-left origin, Y down) to match Finder
 - Conversion formula: `cgY = mainScreenHeight - cocoaOriginY - screenHeight`
 
 ## Display Fingerprinting
 
-A display fingerprint is an MD5 hash of sorted display geometry lines. Both the app and script use the same algorithm:
+A display fingerprint is an MD5 hash of sorted display geometry lines:
 
 ```
 sorted pipe-delimited frames → MD5
 e.g., "0|0|1792|1120\n912|-1080|1920|1080\n" → "566459849ad08e7084399efd0414acb8"
 ```
 
-The app generates auto-profile names with display info:
+Auto-profile names include display info and a fingerprint prefix:
 ```
 Auto-Built-in+DELL-U2720Q_56645984
 ```
 
-The script uses a simpler format:
-```
-auto_56645984
-```
-
-Both match profiles by scanning the fingerprint stored inside the profile file/JSON, so the naming difference doesn't affect matching.
+Profiles are matched by scanning the fingerprint stored inside the profile JSON, so the name format doesn't affect matching.
 
 ## Profile Formats
 
-### JSON (app writes, app reads)
+### JSON (primary format)
 
 ```json
 {
@@ -242,7 +238,9 @@ Both match profiles by scanning the fingerprint stored inside the profile file/J
 }
 ```
 
-### Pipe-delimited (script writes, both read)
+### Pipe-delimited (legacy, read-only)
+
+The app can read `.txt` profiles created by the legacy shell script. It tries `.json` first, then falls back to `.txt`. New profiles are always saved as `.json`.
 
 ```
 #FINGERPRINT|566459849ad08e7084399efd0414acb8
@@ -253,12 +251,14 @@ filename.txt|40|50
 
 ## Restore Process
 
-The app and script share the same core strategy, inspired by [Desktop Icon Manager (DIM)](https://github.com/com-entonos/Desktop-Icon-Manager):
+The app uses an optimized restore strategy inspired by [Desktop Icon Manager (DIM)](https://github.com/com-entonos/Desktop-Icon-Manager):
 
 1. **Prepare for restore** — combined AppleScript restores icon size + text size and disables Snap to Grid in one call (`prepareForRestore`), preventing layout recalculation
 2. **Batch position-setting** — all icons in one AppleScript block with `ignoring application responses`
 3. **Adaptive verify/reapply** — verify at 0.5s, 1.5s, and 3.0s after restore; early-exit when zero drift is detected (typical case completes on first pass); reapply any icons that drifted beyond 2px tolerance
 4. **Overlap protection** — `isRestoring` flag prevents concurrent restores; `verifyTask` cancellation stops stale verify chains when a new restore starts
+
+The legacy shell script uses the same general approach (restore settings, disable arrangement, batch set, verify) but with separate AppleScript calls and a fixed 3-second verify delay. See [legacy-desktop-icons-script/README.md](../legacy-desktop-icons-script/README.md) for details.
 
 ### Read Optimization
 
@@ -305,14 +305,6 @@ Code signing and notarization are opt-in via environment variables. Without them
 
 ## Known Limitations
 
-### App
-
 - First run requires granting Automation permission to control Finder
 - `SMAppService` Launch at Login requires the app to be at a stable filesystem location — the app detects unstable paths, disables stale login-item registrations, and gates the toggle with a warning
 - Auto-profile fingerprint matching returns the first match if multiple profiles share a fingerprint
-
-### Legacy Script
-
-- First run requires granting Accessibility/Automation permissions to Terminal
-- Filenames containing `|` would break the pipe-delimited profile format (extremely rare on macOS)
-- Cannot read `.json` profiles saved by the app

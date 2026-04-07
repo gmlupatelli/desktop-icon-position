@@ -98,6 +98,20 @@ The script and app share the same `~/.desktop_icon_profiles/` directory. Key dif
 | Profile format written | `.txt` (pipe-delimited) | `.json` |
 | Profile format read | `.txt` only | `.txt` and `.json` |
 | Auto-profile prefix | `auto_` | `Auto-` |
+
+> **Migration note:** The app reads script-created `.txt` profiles automatically. No manual conversion needed — just install the app and your existing profiles are available. However, the script cannot read `.json` profiles created by the app.
+
+## Known Limitations
+
+- **Filenames containing `|`** — The pipe-delimited profile format breaks if an icon filename contains a literal `|` character. This is extremely rare on macOS but possible.
+- **Cannot read `.json` profiles** — Profiles saved by the macOS app (`.json` format) are invisible to the script.
+- **Per-icon read loop** — The script reads icon positions one at a time in a loop, which is slow with many icons (expect ~13 seconds for 80+ icons). The app uses batch reads instead.
+- **Fixed 3-second verify delay** — Post-restore verification always waits 3 seconds regardless of whether icons drifted. The app uses adaptive timing that exits early.
+- **No auto-save** — The script only saves when explicitly invoked. There's no timer or event-driven auto-save.
+- **Watch mode uses polling** — `watch` polls display geometry every 3 seconds, which is less efficient than the app's event-driven `NSScreen` notifications.
+- **Requires Terminal permissions** — Terminal (or your shell) must have both Accessibility and Automation permissions granted in System Settings > Privacy & Security.
+- **No coordinate conversion on save** — If you save while displays are in an unusual arrangement and later change that arrangement, the restore will convert coordinates, but watch mode won't detect the change unless the display count or geometry fingerprint changes.
+- **Profiles saved without display geometry** — Very old profiles (created before the multi-display feature was added) lack `#DISPLAY` lines. The script will warn and skip coordinate conversion for these.
 | Display change detection | Polling (3s interval) | `NSApplication.didChangeScreenParametersNotification` |
 
 The macOS app can read profiles saved by the script. The script cannot read JSON profiles saved by the app.

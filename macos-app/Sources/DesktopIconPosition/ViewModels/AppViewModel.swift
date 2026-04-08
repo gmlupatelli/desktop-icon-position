@@ -209,8 +209,13 @@ final class AppViewModel {
         let name = ProfileManager.autoProfileName(fingerprint: fp, displayNames: names)
         save(name: name, allowReservedAutoName: true)
         if statusMessage.hasPrefix("Saved") {
+            let count = statusMessage.split(separator: " ").dropFirst().first.flatMap { Int($0) }
             let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
-            statusMessage = "Autosaved at \(time)"
+            if let count {
+                statusMessage = "Autosaved \(count) icons at \(time)"
+            } else {
+                statusMessage = "Autosaved at \(time)"
+            }
         }
     }
 
@@ -262,7 +267,7 @@ final class AppViewModel {
             try ProfileManager.saveProfile(profile, name: name, allowReservedAutoName: true)
             refreshProfiles()
             let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
-            statusMessage = "Autosaved at \(time)"
+            statusMessage = "Autosaved \(icons.count) icons at \(time)"
         } catch {
             if FinderService.isPermissionError(error) {
                 handleFinderError(error, action: "Auto-save")

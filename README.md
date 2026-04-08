@@ -10,7 +10,7 @@ When a MacBook is connected to an external monitor and you arrange desktop icons
 
 A lightweight menu bar app (no dock icon) that handles everything automatically:
 
-- **Auto-saves** your icon layout on launch, display change, quit, or periodically
+- **Auto-saves** your icon layout on quit or periodically
 - **Auto-restores** on app launch and when you connect/disconnect displays — finds the right profile by display fingerprint
 - **Coordinate remapping** — converts icon positions between different display configurations
 - **Anti-drift protection** — disables Snap to Grid, batch-sets positions, and verifies after restore
@@ -127,7 +127,7 @@ Or open `macos-app/Package.swift` in Xcode and build/run from there.
 On startup, the app runs a lightweight Finder AppleScript check. If macOS has not asked yet, this triggers the **Automation** consent prompt.
 
 If permission is denied:
-- launch auto-save, launch auto-restore, display-change automation, and timer-based auto-save are skipped
+- launch auto-restore, display-change auto-restore, and timer-based auto-save are skipped
 - the menu shows **Open System Settings** and **Re-check Permission** actions
 - once permission is granted in System Settings, **Re-check Permission** resumes the deferred automation behavior without restarting the app
 

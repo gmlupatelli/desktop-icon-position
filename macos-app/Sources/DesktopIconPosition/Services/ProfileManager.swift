@@ -65,6 +65,7 @@ enum ProfileManager {
         let displayCount: Int
         let fingerprint: String
         let format: String // "json" or "txt"
+        let modificationDate: Date // when the profile was last modified
     }
 
     /// List all saved profiles (both .json and .txt).
@@ -84,12 +85,14 @@ enum ProfileManager {
             let name = url.deletingPathExtension().lastPathComponent
             seen.insert(name)
             if let profile = try? loadJSON(from: url) {
+                let modDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
                 summaries.append(ProfileSummary(
                     id: name, name: name,
                     iconCount: profile.iconCount,
                     displayCount: profile.displayCount,
                     fingerprint: profile.fingerprint,
-                    format: "json"
+                    format: "json",
+                    modificationDate: modDate
                 ))
             }
         }
@@ -99,12 +102,14 @@ enum ProfileManager {
             let name = url.deletingPathExtension().lastPathComponent
             guard !seen.contains(name) else { continue }
             if let profile = try? parsePipeDelimited(from: url) {
+                let modDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
                 summaries.append(ProfileSummary(
                     id: name, name: name,
                     iconCount: profile.iconCount,
                     displayCount: profile.displayCount,
                     fingerprint: profile.fingerprint,
-                    format: "txt"
+                    format: "txt",
+                    modificationDate: modDate
                 ))
             }
         }
@@ -157,17 +162,22 @@ enum ProfileManager {
     }
 
     /// Find the best auto-profile matching the given fingerprint.
-    /// Prefers Auto-prefixed profiles; falls back to any match if none exist.
+    /// Prefers Auto-prefixed profiles sorted by modification date (most recent first);
+    /// falls back to any match if none exist.
     static func findAutoProfile(forFingerprint fingerprint: String) throws -> (name: String, profile: Profile)? {
         let summaries = try listProfiles()
         let matching = summaries.filter { $0.fingerprint == fingerprint }
 
-        if let auto = matching.first(where: { $0.name.hasPrefix("Auto-") }) {
+        // Prefer Auto-prefixed profiles, sorted by modification date (most recent first)
+        let autoProfiles = matching.filter { $0.name.hasPrefix("Auto-") }
+            .sorted { $0.modificationDate > $1.modificationDate }
+        if let auto = autoProfiles.first {
             let profile = try loadProfile(name: auto.name)
             return (auto.name, profile)
         }
 
-        if let first = matching.first {
+        // Fall back to any match, sorted by modification date (most recent first)
+        if let first = matching.sorted(by: { $0.modificationDate > $1.modificationDate }).first {
             let profile = try loadProfile(name: first.name)
             return (first.name, profile)
         }
